@@ -1,10 +1,14 @@
 {
   "_notes": [
     "All scoring rules live here. Change numbers, refresh the page, see the effect.",
-    "XP for one log entry = (baseXp + xpPerUnit * units) * difficulty multiplier * repeat multiplier.",
+    "XP for one log entry = (baseXp + xpPerUnit * units) * difficulty multiplier * repeat multiplier * momentum bonus.",
     "units is capped at maxUnits so one giant entry can't inflate your level.",
     "The repeat multiplier is decayPerRepeat ^ (times you already did this activity today), never below floor.",
-    "XP needed to go from level n to n+1 = base * n ^ exponent."
+    "XP needed to go from level n to n+1 = base * n ^ exponent.",
+    "Streak: days in a row with at least minXpPerDay XP. Every shieldEvery streak days earns a shield (max maxShields).",
+    "A missed day uses a shield if you have one, otherwise the streak resets. Planned rest days (restDaysPerWeek, Mon-Sun) are safe.",
+    "Momentum (0-100): +gainPerActiveDay per active day, loses missDecay (15%) per missed day. Rest days don't change it.",
+    "Momentum at the start of today gives activities up to +maxXpBonus (20%) XP."
   ],
   "domains": [
     { "id": "body", "label": "Body", "glyph": "BDY" },
@@ -24,6 +28,14 @@
   },
   "diminishingReturns": { "decayPerRepeat": 0.7, "floor": 0.1 },
   "gold": { "perXp": 0.1 },
+  "streak": {
+    "minXpPerDay": 1,
+    "shieldEvery": 7,
+    "maxShields": 3,
+    "restDaysPerWeek": 1,
+    "planAheadDays": 14
+  },
+  "momentum": { "gainPerActiveDay": 10, "missDecay": 0.15, "maxXpBonus": 0.2 },
   "activities": [
     { "slug": "run", "name": "Run", "domain": "body", "unit": "minute", "baseXp": 10, "xpPerUnit": 1, "maxUnits": 120, "defaultUnits": 30, "quick": true },
     { "slug": "workout", "name": "Workout", "domain": "body", "unit": "minute", "baseXp": 15, "xpPerUnit": 0.8, "maxUnits": 120, "defaultUnits": 45, "quick": true },

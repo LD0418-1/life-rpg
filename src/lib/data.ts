@@ -2,6 +2,7 @@ import "server-only";
 import type { SheetData } from "@/lib/game/types";
 import { dayInTimeZone, emptyTotals } from "@/lib/game/xp";
 import { createClient } from "@/lib/supabase/server";
+import { loadStreakData } from "@/lib/supabase/streak-data";
 import { type LogEntryRow, type ProfileRow, QUEST_COLUMNS, type QuestRow, toLogEntry, toQuest } from "@/lib/supabase/rows";
 
 export type SheetResult =
@@ -25,7 +26,8 @@ export async function loadSheet(): Promise<SheetResult> {
   if (!profile || (!isOwner && !profile.is_public)) return { kind: "private", signedIn: Boolean(user) };
 
   const today = dayInTimeZone(new Date(), profile.timezone);
-  const [totalsRes, recentRes, todayRes, questsRes, doneRes] = await Promise.all([
+  const [streakData, totalsRes, recentRes, todayRes, questsRes, doneRes] = await Promise.all([
+    loadStreakData(supabase),
     supabase.from("domain_totals").select("domain, xp, gold"),
     supabase
       .from("log_entries")
@@ -70,6 +72,9 @@ export async function loadSheet(): Promise<SheetResult> {
       todayCounts,
       quests: questRows.filter((q) => q.kind !== "daily").map((q) => toQuest(q)),
       dailies: questRows.filter((q) => q.kind === "daily").map((q) => toQuest(q, doneToday.has(q.id))),
+      days: streakData.days,
+      restDays: streakData.restDays,
+      streaksReady: streakData.ready,
     },
   };
 }

@@ -39,6 +39,14 @@ export interface GameConfig {
   };
   diminishingReturns: { decayPerRepeat: number; floor: number };
   gold: { perXp: number };
+  streak: {
+    minXpPerDay: number;
+    shieldEvery: number;
+    maxShields: number;
+    restDaysPerWeek: number;
+    planAheadDays: number;
+  };
+  momentum: { gainPerActiveDay: number; missDecay: number; maxXpBonus: number };
   activities: Activity[];
 }
 
@@ -59,6 +67,18 @@ export function validateConfig(config: GameConfig): GameConfig {
   const { decayPerRepeat, floor } = config.diminishingReturns;
   if (!(decayPerRepeat > 0 && decayPerRepeat <= 1)) errors.push("decayPerRepeat must be in (0, 1]");
   if (!(floor >= 0 && floor <= 1)) errors.push("diminishingReturns.floor must be in [0, 1]");
+
+  const st = config.streak;
+  if (!(st.minXpPerDay >= 1)) errors.push("streak.minXpPerDay must be >= 1");
+  if (!(Number.isInteger(st.shieldEvery) && st.shieldEvery >= 1)) errors.push("streak.shieldEvery must be a whole number >= 1");
+  if (!(Number.isInteger(st.maxShields) && st.maxShields >= 0)) errors.push("streak.maxShields must be a whole number >= 0");
+  if (!(Number.isInteger(st.restDaysPerWeek) && st.restDaysPerWeek >= 0 && st.restDaysPerWeek <= 7))
+    errors.push("streak.restDaysPerWeek must be a whole number from 0 to 7");
+  if (!(Number.isInteger(st.planAheadDays) && st.planAheadDays >= 0)) errors.push("streak.planAheadDays must be a whole number >= 0");
+  const mo = config.momentum;
+  if (!(mo.gainPerActiveDay > 0 && mo.gainPerActiveDay <= 100)) errors.push("momentum.gainPerActiveDay must be in (0, 100]");
+  if (!(mo.missDecay >= 0 && mo.missDecay <= 1)) errors.push("momentum.missDecay must be in [0, 1]");
+  if (!(mo.maxXpBonus >= 0 && mo.maxXpBonus <= 1)) errors.push("momentum.maxXpBonus must be in [0, 1]");
 
   const slugs = new Set<string>();
   for (const a of config.activities) {

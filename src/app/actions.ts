@@ -16,9 +16,11 @@ import {
   normalizeNewQuest,
 } from "@/lib/game/quests";
 import type { LogEntry, LogOptions, NewQuestInput, Quest, QuestEdit } from "@/lib/game/types";
+import { checkPlanRest, checkUnplanRest, computeProgress } from "@/lib/game/streaks";
 import { dayInTimeZone, scoreEntry } from "@/lib/game/xp";
 import { createClient } from "@/lib/supabase/server";
 import { type LogEntryRow, QUEST_COLUMNS, type QuestRow, toLogEntry, toQuest } from "@/lib/supabase/rows";
+import { loadStreakData } from "@/lib/supabase/streak-data";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -64,14 +66,15 @@ export async function logActivityAction(slug: string, options: LogOptions): Prom
     const note = cleanNote(options.note);
     const { supabase, today } = await ownerContext();
 
-    const { count, error: countError } = await supabase
-      .from("log_entries")
-      .select("id", { count: "exact", head: true })
-      .eq("activity_slug", slug)
-      .eq("occurred_on", today);
+    const [{ count, error: countError }, streak] = await Promise.all([
+      supabase.from("log_entries").select("id", { count: "exact", head: true }).eq("activity_slug", slug).eq("occurred_on", today),
+      loadStreakData(supabase),
+    ]);
     if (countError) throw new Error(countError.message);
 
-    const score = scoreEntry(activity, { units, difficulty, repeatIndex: count ?? 0 });
+    // Momentum from before today boosts today's activities.
+    const momentumMultiplier = streak.ready ? computeProgress(streak.days, streak.restDays, today).xpMultiplier : 1;
+    const score = scoreEntry(activity, { units, difficulty, repeatIndex: count ?? 0, momentumMultiplier });
     const { data, error } = await supabase
       .from("log_entries")
       .insert({
@@ -209,6 +212,31 @@ export async function abandonQuestAction(questId: string): Promise<ActionResult<
   return run(async () => {
     const { supabase } = await ownerContext();
     const { error } = await supabase.from("quests").update({ status: "abandoned" }).eq("id", questId);
+    if (error) throw new Error(error.message);
+  });
+}
+
+// ---------- Rest days ----------
+
+export async function planRestAction(day: string): Promise<ActionResult<void>> {
+  return run(async () => {
+    const { supabase, today } = await ownerContext();
+    const streak = await loadStreakData(supabase);
+    if (!streak.ready) throw new Error("Streaks need a one-time database update first (0003_streaks.sql).");
+    const xpOnDay = streak.days.find((d) => d.day === day)?.xp ?? 0;
+    checkPlanRest(day, today, streak.restDays, xpOnDay);
+    const { error } = await supabase.from("rest_days").insert({ day });
+    if (error) throw new Error(error.message);
+  });
+}
+
+export async function unplanRestAction(day: string): Promise<ActionResult<void>> {
+  return run(async () => {
+    const { supabase, today } = await ownerContext();
+    const streak = await loadStreakData(supabase);
+    if (!streak.ready) throw new Error("Streaks need a one-time database update first (0003_streaks.sql).");
+    checkUnplanRest(day, today, streak.restDays);
+    const { error } = await supabase.from("rest_days").delete().eq("day", day);
     if (error) throw new Error(error.message);
   });
 }

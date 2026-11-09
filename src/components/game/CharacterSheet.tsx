@@ -1,8 +1,9 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { type Activity, gameConfig } from "@/lib/game/config";
 import type { LogEntry, LogOptions, Quest, QuestEdit, SheetBackend, SheetData } from "@/lib/game/types";
+import { computeProgress } from "@/lib/game/streaks";
 import { addToTotals, detectLevelUp, scoreEntry, summarizeTotals } from "@/lib/game/xp";
 import { Panel } from "@/components/ui/Panel";
 import { XpBar } from "@/components/ui/XpBar";
@@ -11,6 +12,7 @@ import { LogDialog } from "./LogDialog";
 import { NewQuestForm } from "./NewQuestForm";
 import { QuestEditor } from "./QuestEditor";
 import { StatRadar } from "./StatRadar";
+import { StreakPanel } from "./StreakPanel";
 
 export type SheetMode = "preview" | "owner" | "visitor";
 
@@ -18,6 +20,13 @@ const domainLabel = (id: string) => gameConfig.domains.find((d) => d.id === id)?
 const domainGlyph = (id: string) => gameConfig.domains.find((d) => d.id === id)?.glyph ?? "???";
 const unitLabel = (n: number, unit = "") => `${n} ${unit}${n === 1 ? "" : "s"}`;
 const activityOf = (slug: string | null) => gameConfig.activities.find((a) => a.slug === slug);
+
+/** Adds `xp` to `day` in a list of daily totals (drops days that reach 0). */
+function addDayXp(days: SheetData["days"], day: string, xp: number): SheetData["days"] {
+  const found = days.some((d) => d.day === day);
+  const next = found ? days.map((d) => (d.day === day ? { ...d, xp: d.xp + xp } : d)) : [...days, { day, xp }];
+  return next.filter((d) => d.xp > 0);
+}
 
 interface Floater {
   key: number;
@@ -48,8 +57,11 @@ export function CharacterSheet({
   const [dialogFor, setDialogFor] = useState<Activity | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ key: number; entry: LogEntry } | null>(null);
+  const [banner, setBanner] = useState<{ key: number; title: string; sub: string } | null>(null);
   const canEdit = mode !== "visitor";
   const summary = summarizeTotals(data.totals);
+  const progress = useMemo(() => computeProgress(data.days, data.restDays, data.today), [data.days, data.restDays, data.today]);
+  const momentumMultiplier = data.streaksReady ? progress.xpMultiplier : 1;
 
   /** Runs a backend call with a busy flag on `key` and error reporting. */
   async function act<T>(key: string, fn: () => Promise<T>): Promise<T | undefined> {
@@ -72,8 +84,16 @@ export function CharacterSheet({
   /** Adds a saved ledger entry to the screen, with the +XP pop and level-up check. */
   function applyEntry(entry: LogEntry, target: string) {
     const up = detectLevelUp(data.totals, entry);
+    if (data.streaksReady) {
+      const after = computeProgress(addDayXp(data.days, entry.occurredOn, entry.xp), data.restDays, data.today);
+      const key = Date.now();
+      if (after.shields > progress.shields) setBanner({ key, title: "Shield earned!", sub: `${after.streak}-day streak · a missed day won't break it` });
+      else if (after.streak > progress.streak) setBanner({ key, title: `Streak ×${after.streak}`, sub: after.streak === 1 ? "Day one. Keep it going." : "Today counts." });
+      setTimeout(() => setBanner((b) => (b?.key === key ? null : b)), 2200);
+    }
     setData((d) => ({
       ...d,
+      days: addDayXp(d.days, entry.occurredOn, entry.xp),
       totals: addToTotals(d.totals, [entry]),
       recent: [entry, ...d.recent].slice(0, 10),
       todayCounts: entry.activitySlug
@@ -110,10 +130,18 @@ export function CharacterSheet({
         return {
           ...d,
           totals: addToTotals(d.totals, [{ domain: entry.domain, xp: -entry.xp, gold: -entry.gold }]),
+          days: addDayXp(d.days, entry.occurredOn, -entry.xp),
           recent: d.recent.filter((e) => e.id !== entry.id),
           todayCounts: counts,
         };
       });
+    });
+
+  const toggleRest = (day: string, isRest: boolean) =>
+    act(`rest:${day}`, async () => {
+      if (isRest) await backend.unplanRest(day);
+      else await backend.planRest(day);
+      setData((d) => ({ ...d, restDays: isRest ? d.restDays.filter((r) => r !== day) : [...d.restDays, day] }));
     });
 
   const replaceQuest = (q: Quest) =>
@@ -206,9 +234,19 @@ export function CharacterSheet({
         </nav>
       )}
 
+      {banner && (
+        <div role="status" className="pointer-events-none fixed inset-x-0 top-[calc(1.5rem+env(safe-area-inset-top))] z-50 flex justify-center px-4">
+          <div key={banner.key} className="anim-stamp anim-fade-out skew-box bg-volt px-8 py-2 text-center text-ink shadow-[6px_6px_0_var(--ink)]">
+            <div className="font-display text-3xl uppercase">{banner.title}</div>
+            <div className="font-label text-sm font-extrabold tracking-wider uppercase">{banner.sub}</div>
+          </div>
+        </div>
+      )}
+
       {dialogFor && (
         <LogDialog
           activity={dialogFor}
+          momentumMultiplier={momentumMultiplier}
           initialDifficulty={difficulty}
           repeatIndex={data.todayCounts[dialogFor.slug] ?? 0}
           onSubmit={(options) => logActivity(dialogFor, options)}
@@ -267,6 +305,9 @@ export function CharacterSheet({
               </span>
             )}
             <span className="skew-box bg-ink-3 px-4 py-0.5">{summary.overall.totalXp.toLocaleString()} total XP</span>
+            {data.streaksReady && progress.streak > 0 && (
+              <span className="skew-box bg-crimson px-4 py-0.5">{progress.streak}-day streak</span>
+            )}
           </div>
         </div>
       </header>
@@ -370,7 +411,7 @@ export function CharacterSheet({
                 {gameConfig.activities
                   .filter((a) => a.quick)
                   .map((a) => {
-                    const preview = scoreEntry(a, { units: a.defaultUnits, difficulty, repeatIndex: data.todayCounts[a.slug] ?? 0 });
+                    const preview = scoreEntry(a, { units: a.defaultUnits, difficulty, repeatIndex: data.todayCounts[a.slug] ?? 0, momentumMultiplier });
                     const diminished = preview.breakdown.repeatMultiplier < 1;
                     return (
                       <div key={a.slug} className="relative">
@@ -401,6 +442,16 @@ export function CharacterSheet({
               <p className="mt-3 text-xs text-muted">Yellow XP means you already did it today, so repeats are worth less. Tap ⋯ to log a custom amount or add a note.</p>
             </Panel>
           )}
+
+          <StreakPanel
+            progress={progress}
+            today={data.today}
+            restDays={data.restDays}
+            ready={data.streaksReady}
+            canEdit={canEdit}
+            isBusy={(day) => busy.has(`rest:${day}`)}
+            onToggleRest={toggleRest}
+          />
 
           <Panel title="Dailies" kicker={data.today}>
             {data.dailies.length === 0 ? (

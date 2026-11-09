@@ -56,6 +56,8 @@ export interface EntryInput {
   difficulty?: number;
   /** How many times this activity was already logged today (0 for the first time). */
   repeatIndex?: number;
+  /** Bonus from momentum, e.g. 1.12 for +12%. Defaults to 1. */
+  momentumMultiplier?: number;
 }
 
 export interface EntryScore {
@@ -66,6 +68,7 @@ export interface EntryScore {
     rawXp: number;
     difficultyMultiplier: number;
     repeatMultiplier: number;
+    momentumMultiplier: number;
   };
 }
 
@@ -86,11 +89,12 @@ export function scoreEntry(activity: Activity, input: EntryInput = {}, config: G
   const rawXp = activity.baseXp + activity.xpPerUnit * units;
   const dMult = difficultyMultiplier(input.difficulty, config);
   const rMult = repeatMultiplier(input.repeatIndex ?? 0, config);
-  const xp = Math.round(rawXp * dMult * rMult);
+  const mMult = Math.min(1 + config.momentum.maxXpBonus, Math.max(1, input.momentumMultiplier ?? 1));
+  const xp = Math.round(rawXp * dMult * rMult * mMult);
   return {
     xp,
     gold: Math.round(xp * config.gold.perXp),
-    breakdown: { units, rawXp, difficultyMultiplier: dMult, repeatMultiplier: rMult },
+    breakdown: { units, rawXp, difficultyMultiplier: dMult, repeatMultiplier: rMult, momentumMultiplier: mMult },
   };
 }
 

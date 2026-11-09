@@ -28,8 +28,10 @@
 - [ ] Deploy, then **use it daily for 2 weeks** and adjust
 
 ## Phase 3: Anti-quit mechanics
-- [ ] Streaks with earned shields and planned rest days
-- [ ] Momentum meter that decays slowly
+- [x] Streaks with earned shields and planned rest days
+- [x] Momentum meter that decays slowly, with an XP bonus of up to +20%
+- [x] Streak calendar (2 past weeks, this week, next week) and celebration banners
+- [ ] Run `0003_streaks.sql` on the live database
 - [x] Diminishing returns on repeats
 - [x] Effort weighting (units + difficulty)
 

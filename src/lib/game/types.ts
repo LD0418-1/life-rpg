@@ -68,6 +68,12 @@ export interface SheetData {
   todayCounts: Record<string, number>;
   quests: Quest[];
   dailies: Quest[];
+  /** XP per day, for streaks and momentum. */
+  days: { day: string; xp: number }[];
+  /** Planned rest days (YYYY-MM-DD). */
+  restDays: string[];
+  /** False until the 0003_streaks.sql database script has been run. */
+  streaksReady: boolean;
 }
 
 export interface LogOptions {
@@ -94,4 +100,6 @@ export interface SheetBackend {
   addObjective(questId: string, title: string): Promise<Quest>;
   removeObjective(questId: string, objectiveId: string): Promise<Quest>;
   abandonQuest(questId: string): Promise<void>;
+  planRest(day: string): Promise<void>;
+  unplanRest(day: string): Promise<void>;
 }

@@ -54,6 +54,7 @@ public/
 supabase/migrations/
   0001_init.sql               database tables + security rules
   0002_totals_and_rewards.sql fast XP totals + all-or-nothing daily/quest rewards
+  0003_streaks.sql            XP per day + planned rest days (for streaks and momentum)
 ```
 
 ### The scoring rules (`src/config/xp.json`)
@@ -64,6 +65,10 @@ supabase/migrations/
 - **repeat**: the 2nd run of the day is worth ×0.7, the 3rd ×0.49, and so on, never below ×0.1.
 - **Leveling up** from level *n* costs `base × n^exponent` XP. Each domain levels on its own, and overall level uses total XP.
 - **gold** = 10% of XP. You spend it in the loot shop (Phase 4).
+- **streak**: days in a row with any XP. Every 7 streak days earns a **shield** (max 3), and a missed day uses one automatically instead of resetting your streak.
+- **rest days**: plan 1 per week (Mon–Sun) by tapping today or a future day in the Streak calendar. They keep your streak safe, but can't be added after the fact.
+- **momentum** (0–100): +10 per active day, −15% per missed day, unchanged on rest days. Momentum at the start of a day gives that day's activities up to **+20% XP**.
+- Streaks are *replayed* from your log every time (`src/lib/game/streaks.ts`), so nothing can drift out of sync, and changing these numbers re-tells your history with the new rules.
 
 ### The database (`supabase/migrations/0001_init.sql`)
 
@@ -77,7 +82,7 @@ The style is an original high-contrast JRPG menu look: ink black, paper white an
 ## Setting up Supabase
 
 1. Create a project at supabase.com.
-2. In **SQL Editor**, run `supabase/migrations/0001_init.sql`, then run `0002_totals_and_rewards.sql`.
+2. In **SQL Editor**, run each file in `supabase/migrations/` in order: `0001_init.sql`, `0002_totals_and_rewards.sql`, `0003_streaks.sql`.
 3. In **Authentication → Users → Add user**, create your user and tick **Auto Confirm User**.
 4. In **Authentication → Sign In / Providers**, turn off **Allow new users to sign up**.
 5. Make yourself the owner by running this in the SQL Editor:

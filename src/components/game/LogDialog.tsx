@@ -13,12 +13,14 @@ const labelClass = "mb-1 block font-label text-sm font-extrabold tracking-widest
 /** Log an activity with a custom amount, difficulty and note. */
 export function LogDialog({
   activity,
+  momentumMultiplier,
   initialDifficulty,
   repeatIndex,
   onSubmit,
   onClose,
 }: {
   activity: Activity;
+  momentumMultiplier: number;
   initialDifficulty: number;
   repeatIndex: number;
   onSubmit: (options: LogOptions) => Promise<boolean>;
@@ -40,7 +42,7 @@ export function LogDialog({
 
   const unitsNumber = isSession ? 1 : Number(units);
   const valid = Number.isFinite(unitsNumber) && unitsNumber > 0;
-  const preview = valid ? scoreEntry(activity, { units: unitsNumber, difficulty, repeatIndex }) : null;
+  const preview = valid ? scoreEntry(activity, { units: unitsNumber, difficulty, repeatIndex, momentumMultiplier }) : null;
   const capped = valid && unitsNumber > activity.maxUnits;
 
   const submit = async (e: React.FormEvent) => {
@@ -120,9 +122,11 @@ export function LogDialog({
             </SlashButton>
             <SlashButton type="button" variant="ghost" onClick={onClose}>Cancel</SlashButton>
           </div>
-          {repeatIndex > 0 && preview && (
+          {preview && (repeatIndex > 0 || preview.breakdown.momentumMultiplier > 1) && (
             <p className="text-xs text-volt">
-              Repeat #{repeatIndex + 1} today · XP ×{preview.breakdown.repeatMultiplier.toFixed(2)}
+              {repeatIndex > 0 && <>Repeat #{repeatIndex + 1} today · XP ×{preview.breakdown.repeatMultiplier.toFixed(2)}</>}
+              {repeatIndex > 0 && preview.breakdown.momentumMultiplier > 1 && " · "}
+              {preview.breakdown.momentumMultiplier > 1 && <>Momentum +{Math.round((preview.breakdown.momentumMultiplier - 1) * 100)}%</>}
             </p>
           )}
         </form>

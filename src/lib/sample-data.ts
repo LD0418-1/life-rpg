@@ -2,6 +2,7 @@
 // Replaced by your real data once Supabase is connected.
 import { gameConfig } from "./game/config";
 import { type LogEntry, type Quest, type SheetData, toDay } from "./game/types";
+import { addDays } from "./game/streaks";
 import { addToTotals, emptyTotals, repeatIndexFor, scoreEntry } from "./game/xp";
 
 // Small seeded random generator, so the sample looks the same on every load.
@@ -12,6 +13,10 @@ function seeded(seed: number) {
   };
 }
 
+/** Days ago with nothing logged: 3 = a planned rest day, 10 = saved by a shield, 26 + 27 = streak broken. */
+const SAMPLE_GAPS = new Set([3, 10, 26, 27]);
+const SAMPLE_REST_DAYS_AGO = 3;
+
 export function buildSampleEntries(today: Date, days = 40): LogEntry[] {
   const rand = seeded(42);
   // How often each activity shows up on a given day.
@@ -21,6 +26,7 @@ export function buildSampleEntries(today: Date, days = 40): LogEntry[] {
   };
   const entries: LogEntry[] = [];
   for (let back = days; back >= 1; back--) {
+    if (SAMPLE_GAPS.has(back)) continue; // days off, so the preview shows rest days, shields and a broken streak
     const date = new Date(today);
     date.setDate(today.getDate() - back);
     const day = toDay(date);
@@ -87,7 +93,12 @@ export const sampleDailies: Quest[] = [
 export function buildSampleSheet(now: Date): SheetData {
   const entries = buildSampleEntries(now);
   const today = toDay(now);
+  const xpByDay = new Map<string, number>();
+  for (const e of entries) xpByDay.set(e.occurredOn, (xpByDay.get(e.occurredOn) ?? 0) + e.xp);
   return {
+    days: [...xpByDay].map(([day, xp]) => ({ day, xp })),
+    restDays: [addDays(today, -SAMPLE_REST_DAYS_AGO)],
+    streaksReady: true,
     displayName: "Player One",
     title: "Apprentice of many paths",
     bio: null,

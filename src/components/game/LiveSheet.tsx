@@ -11,10 +11,12 @@ import {
   createQuestAction,
   deleteEntryAction,
   logActivityAction,
+  planRestAction,
   removeObjectiveAction,
   setObjectiveAction,
   setTimezoneAction,
   signOutAction,
+  unplanRestAction,
   updateQuestAction,
 } from "@/app/actions";
 import type { SheetBackend, SheetData } from "@/lib/game/types";
@@ -42,6 +44,8 @@ export function LiveSheet({ initial, isOwner }: { initial: SheetData; isOwner: b
       addObjective: (questId, title) => unwrap(addObjectiveAction(questId, title)),
       removeObjective: (questId, objectiveId) => unwrap(removeObjectiveAction(questId, objectiveId)),
       abandonQuest: (questId) => unwrap(abandonQuestAction(questId)),
+      planRest: (day) => unwrap(planRestAction(day)),
+      unplanRest: (day) => unwrap(unplanRestAction(day)),
     }),
     [],
   );

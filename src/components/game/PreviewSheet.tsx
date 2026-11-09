@@ -13,6 +13,7 @@ import {
   normalizeNewQuest,
 } from "@/lib/game/quests";
 import type { LogEntry, Quest, SheetBackend, SheetData } from "@/lib/game/types";
+import { checkPlanRest, checkUnplanRest, computeProgress } from "@/lib/game/streaks";
 import { scoreEntry } from "@/lib/game/xp";
 import { buildSampleSheet, sampleDailies, sampleQuests } from "@/lib/sample-data";
 import { CharacterSheet } from "./CharacterSheet";
@@ -21,6 +22,11 @@ import { CharacterSheet } from "./CharacterSheet";
 function createPreviewBackend(initial: SheetData): SheetBackend {
   const { today } = initial;
   const entries = new Map<string, LogEntry>(initial.recent.map((e) => [e.id, e]));
+  const dayXp = new Map<string, number>(initial.days.map((d) => [d.day, d.xp]));
+  let restDays = [...initial.restDays];
+  const addXp = (day: string, xp: number) => dayXp.set(day, (dayXp.get(day) ?? 0) + xp);
+  const momentum = () =>
+    computeProgress([...dayXp].map(([day, xp]) => ({ day, xp })), restDays, today).xpMultiplier;
   const quests = new Map<string, Quest>([...sampleQuests, ...sampleDailies].map((q) => [q.id, structuredClone(q)]));
   let n = 0;
   const id = () => `preview-${++n}`;
@@ -36,6 +42,7 @@ function createPreviewBackend(initial: SheetData): SheetBackend {
       xp: q.xpReward, gold: q.goldReward, occurredOn: today, note: q.title,
     };
     entries.set(entry.id, entry);
+    addXp(today, entry.xp);
     return entry;
   };
 
@@ -44,15 +51,17 @@ function createPreviewBackend(initial: SheetData): SheetBackend {
       const activity = getActivity(slug);
       const units = cleanUnits(activity, rawUnits);
       const note = cleanNote(rawNote) ?? undefined;
-      const score = scoreEntry(activity, { units, difficulty, repeatIndex: todayCount(slug) });
+      const score = scoreEntry(activity, { units, difficulty, repeatIndex: todayCount(slug), momentumMultiplier: momentum() });
       const entry: LogEntry = { id: id(), activitySlug: slug, domain: activity.domain, units, difficulty, xp: score.xp, gold: score.gold, occurredOn: today, note };
       entries.set(entry.id, entry);
+      addXp(today, entry.xp);
       return entry;
     },
     async deleteEntry(entryId) {
       const e = entries.get(entryId);
       if (!e || !e.activitySlug) throw new Error("That entry can't be deleted (quest rewards stay), or it's already gone.");
       entries.delete(entryId);
+      addXp(e.occurredOn, -e.xp);
     },
     async completeDaily(questId) {
       const q = quests.get(questId);
@@ -94,6 +103,14 @@ function createPreviewBackend(initial: SheetData): SheetBackend {
     },
     async abandonQuest(questId) {
       quests.delete(questId);
+    },
+    async planRest(day) {
+      checkPlanRest(day, today, restDays, dayXp.get(day) ?? 0);
+      restDays = [...restDays, day];
+    },
+    async unplanRest(day) {
+      checkUnplanRest(day, today, restDays);
+      restDays = restDays.filter((d) => d !== day);
     },
   };
 }
