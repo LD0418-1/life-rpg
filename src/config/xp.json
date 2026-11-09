@@ -1,0 +1,39 @@
+{
+  "_notes": [
+    "All scoring rules live here. Change numbers, refresh the page, see the effect.",
+    "XP for one log entry = (baseXp + xpPerUnit * units) * difficulty multiplier * repeat multiplier.",
+    "units is capped at maxUnits so one giant entry can't inflate your level.",
+    "The repeat multiplier is decayPerRepeat ^ (times you already did this activity today), never below floor.",
+    "XP needed to go from level n to n+1 = base * n ^ exponent."
+  ],
+  "domains": [
+    { "id": "body", "label": "Body", "glyph": "BDY" },
+    { "id": "mind", "label": "Mind", "glyph": "MND" },
+    { "id": "craft", "label": "Craft", "glyph": "CRF" },
+    { "id": "social", "label": "Social", "glyph": "SOC" },
+    { "id": "spirit", "label": "Spirit", "glyph": "SPR" }
+  ],
+  "levels": {
+    "domain": { "base": 100, "exponent": 1.5, "maxLevel": 99 },
+    "overall": { "base": 300, "exponent": 1.6, "maxLevel": 99 }
+  },
+  "difficulty": {
+    "default": 3,
+    "multipliers": { "1": 0.5, "2": 0.75, "3": 1, "4": 1.5, "5": 2 },
+    "labels": { "1": "Trivial", "2": "Easy", "3": "Normal", "4": "Hard", "5": "Brutal" }
+  },
+  "diminishingReturns": { "decayPerRepeat": 0.7, "floor": 0.1 },
+  "gold": { "perXp": 0.1 },
+  "activities": [
+    { "slug": "run", "name": "Run", "domain": "body", "unit": "minute", "baseXp": 10, "xpPerUnit": 1, "maxUnits": 120, "defaultUnits": 30, "quick": true },
+    { "slug": "workout", "name": "Workout", "domain": "body", "unit": "minute", "baseXp": 15, "xpPerUnit": 0.8, "maxUnits": 120, "defaultUnits": 45, "quick": true },
+    { "slug": "read", "name": "Read", "domain": "mind", "unit": "page", "baseXp": 5, "xpPerUnit": 0.5, "maxUnits": 100, "defaultUnits": 20, "quick": true },
+    { "slug": "study", "name": "Study", "domain": "mind", "unit": "minute", "baseXp": 10, "xpPerUnit": 1, "maxUnits": 180, "defaultUnits": 45, "quick": true },
+    { "slug": "code", "name": "Code", "domain": "craft", "unit": "minute", "baseXp": 10, "xpPerUnit": 0.8, "maxUnits": 240, "defaultUnits": 60, "quick": true },
+    { "slug": "practice", "name": "Practice a skill", "domain": "craft", "unit": "minute", "baseXp": 5, "xpPerUnit": 1, "maxUnits": 120, "defaultUnits": 30, "quick": true },
+    { "slug": "call", "name": "Call someone", "domain": "social", "unit": "session", "baseXp": 15, "xpPerUnit": 0, "maxUnits": 1, "defaultUnits": 1, "quick": true },
+    { "slug": "hangout", "name": "Hang out", "domain": "social", "unit": "minute", "baseXp": 20, "xpPerUnit": 0.2, "maxUnits": 300, "defaultUnits": 120, "quick": true },
+    { "slug": "meditate", "name": "Meditate", "domain": "spirit", "unit": "minute", "baseXp": 10, "xpPerUnit": 1, "maxUnits": 60, "defaultUnits": 10, "quick": true },
+    { "slug": "journal", "name": "Journal", "domain": "spirit", "unit": "session", "baseXp": 15, "xpPerUnit": 0, "maxUnits": 1, "defaultUnits": 1, "quick": true }
+  ]
+}

@@ -1,26 +1,118 @@
 @import "tailwindcss";
+@import "@fontsource/anton/400.css";
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/barlow-condensed/800.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/600.css";
 
+/*
+  Design tokens. Every color in the app comes from here, so a theme change is
+  one edit. Style: high-contrast ink / paper / crimson, slashed angles,
+  halftone texture. Light theme comes in Phase 9.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink: #0b0b0d;        /* page background */
+  --ink-2: #17171b;      /* panels */
+  --ink-3: #26262c;      /* raised / tracks */
+  --paper: #f5f2ea;      /* primary text, white panels */
+  --muted: #a7a3ab;      /* secondary text */
+  --crimson: #e3172f;    /* brand accent */
+  --crimson-deep: #8f0d1d;
+  --volt: #ffd60a;       /* gold, level-ups */
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-paper: var(--paper);
+  --color-muted: var(--muted);
+  --color-crimson: var(--crimson);
+  --color-crimson-deep: var(--crimson-deep);
+  --color-volt: var(--volt);
+  --font-display: "Anton", Impact, sans-serif;
+  --font-label: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--ink);
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-sans);
+  /* faint halftone dots across the whole page */
+  background-image: radial-gradient(color-mix(in srgb, var(--paper) 7%, transparent) 1px, transparent 1.4px);
+  background-size: 7px 7px;
+  min-height: 100dvh;
+}
+
+::selection {
+  background: var(--crimson);
+  color: var(--paper);
+}
+
+:focus-visible {
+  outline: 3px solid var(--volt);
+  outline-offset: 2px;
+}
+
+@layer components {
+  /* Panel with one corner sliced off */
+  .slash-panel {
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 22px), calc(100% - 22px) 100%, 0 100%);
+  }
+  /* Parallelogram shape for buttons, tags, bars */
+  .skew-box {
+    clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  }
+  .stripes {
+    background-image: repeating-linear-gradient(
+      -55deg,
+      var(--crimson) 0 14px,
+      var(--crimson-deep) 14px 28px
+    );
+  }
+  .halftone-red {
+    background-color: var(--crimson);
+    background-image: radial-gradient(var(--crimson-deep) 1.6px, transparent 2px);
+    background-size: 8px 8px;
+  }
+}
+
+/* ---------- Motion ---------- */
+
+@keyframes float-up {
+  0% { opacity: 0; transform: translate(-50%, 6px) rotate(-6deg) scale(0.8); }
+  15% { opacity: 1; transform: translate(-50%, -6px) rotate(-6deg) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -56px) rotate(-6deg) scale(1); }
+}
+.anim-float-up { animation: float-up 1.1s ease-out forwards; }
+
+@keyframes slash-in {
+  0% { transform: translateX(-120%) skewX(-20deg); }
+  100% { transform: translateX(0) skewX(-20deg); }
+}
+@keyframes stamp {
+  0% { opacity: 0; transform: scale(2.6) rotate(-14deg); }
+  60% { opacity: 1; transform: scale(0.94) rotate(-6deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-6deg); }
+}
+@keyframes fade-out {
+  to { opacity: 0; }
+}
+.anim-slash-in { animation: slash-in 0.28s cubic-bezier(0.2, 0.9, 0.2, 1) forwards; }
+.anim-stamp { animation: stamp 0.45s 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }
+.anim-fade-out { animation: fade-out 0.35s 1.9s ease-in forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-float-up,
+  .anim-slash-in,
+  .anim-stamp {
+    animation-duration: 0.01s;
+    animation-delay: 0s;
+  }
 }
