@@ -1,9 +1,5 @@
-import type { Metadata } from "next";
-import { PreviewLoader } from "@/components/game/PreviewLoader";
+import { TodayView } from "@/components/game/views/TodayView";
 
-export const metadata: Metadata = { title: "Preview · Life RPG" };
-
-/** Always shows the sample-data preview: handy for trying changes safely. */
-export default function PreviewPage() {
-  return <PreviewLoader />;
+export default function Page() {
+  return <TodayView />;
 }

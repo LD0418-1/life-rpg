@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { updateProfileAction } from "@/app/actions";
 import { Panel } from "@/components/ui/Panel";
@@ -7,6 +6,9 @@ import { SlashButton } from "@/components/ui/SlashButton";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { ProfileRow } from "@/lib/supabase/rows";
 import { createClient } from "@/lib/supabase/server";
+import { loadTotals } from "@/lib/data";
+import { THEMES, effectiveTheme } from "@/lib/game/themes";
+import { summarizeTotals } from "@/lib/game/xp";
 
 export const metadata: Metadata = { title: "Settings · Life RPG" };
 export const dynamic = "force-dynamic";
@@ -20,19 +22,19 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const { data: isOwner } = await supabase.rpc("is_owner");
   if (isOwner !== true) redirect("/login");
 
-  const { data: profile, error: loadError } = await supabase
-    .from("profile")
-    .select("display_name, title, bio, timezone, is_public")
-    .single<ProfileRow>();
+  const [{ data: profile, error: loadError }, totals] = await Promise.all([
+    supabase.from("profile").select("*").single<ProfileRow>(),
+    loadTotals(supabase),
+  ]);
   if (loadError) throw new Error(`Could not load your profile: ${loadError.message}`);
+  const level = summarizeTotals(totals).overall.level;
+  const themesReady = typeof profile.theme === "string";
+  const currentTheme = effectiveTheme(profile.theme, level).id;
   const { saved, error } = await searchParams;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pt-8 pb-16">
-      <Link href="/" className="font-label text-sm font-extrabold tracking-widest text-muted uppercase hover:text-paper">
-        ← Back to your sheet
-      </Link>
-      <h1 className="mt-4 mb-10 -rotate-2 font-display text-6xl uppercase">
+    <main className="mx-auto max-w-2xl px-4 pt-8">
+      <h1 className="mb-10 -rotate-2 font-display text-6xl uppercase">
         Set<span className="bg-crimson px-1">tings</span>
       </h1>
 
@@ -83,6 +85,39 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               </span>
             </span>
           </label>
+        </Panel>
+
+        <Panel title="Theme" kicker="Unlocked by leveling up">
+          {themesReady ? (
+            <fieldset>
+              <legend className="sr-only">Accent color</legend>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {THEMES.map((t) => {
+                  const locked = t.level > level;
+                  return (
+                    <label
+                      key={t.id}
+                      className={`skew-box flex items-center gap-3 px-4 py-2 has-[:checked]:bg-paper has-[:checked]:text-ink has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-volt ${
+                        locked ? "cursor-not-allowed bg-ink-3/50 text-muted" : "cursor-pointer bg-ink-3"
+                      }`}
+                    >
+                      <input type="radio" name="theme" value={t.id} defaultChecked={t.id === currentTheme} disabled={locked} className="sr-only" />
+                      <span aria-hidden className="h-5 w-5 shrink-0 rotate-45" style={{ background: locked ? "var(--ink-3)" : t.accent }} />
+                      <span className="font-label font-extrabold tracking-wider uppercase">
+                        {t.name}
+                        {locked && <span className="block text-xs">Lv {t.level}</span>}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-sm text-muted">You&apos;re level {level}. Visitors see your theme too.</p>
+            </fieldset>
+          ) : (
+            <p className="text-sm text-muted">
+              Themes need a one-time database update: run <code>supabase/migrations/0004_depth.sql</code> in the Supabase SQL Editor.
+            </p>
+          )}
         </Panel>
 
         <Panel title="Time zone">

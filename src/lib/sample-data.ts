@@ -2,6 +2,10 @@
 // Replaced by your real data once Supabase is connected.
 import { gameConfig } from "./game/config";
 import { type LogEntry, type Quest, type SheetData, toDay } from "./game/types";
+import { newlyEarned } from "./game/achievements";
+import type { LootItem, Purchase } from "./game/loot";
+import type { Skill } from "./game/skills";
+import { buildStats } from "./game/stats";
 import { addDays } from "./game/streaks";
 import { addToTotals, emptyTotals, repeatIndexFor, scoreEntry } from "./game/xp";
 
@@ -89,25 +93,70 @@ export const sampleDailies: Quest[] = [
   { id: "d3", kind: "daily", title: "No phone after 11pm", domain: "spirit", xpReward: 20, goldReward: 2, objectives: [] },
 ];
 
-/** A full sample character sheet for the preview page. */
-export function buildSampleSheet(now: Date): SheetData {
+export const sampleSkills: Skill[] = [
+  { id: "s1", tree: "Guitar", name: "Hold it right", requirement: "Tune it and hold it without looking it up", domain: "craft", parentId: null, xpReward: 40, unlockedAt: "2026-10-20T10:00:00Z" },
+  { id: "s2", tree: "Guitar", name: "First chords", requirement: "Switch between G, C and D cleanly", domain: "craft", parentId: "s1", xpReward: 60, unlockedAt: "2026-10-30T10:00:00Z" },
+  { id: "s3", tree: "Guitar", name: "Strumming", requirement: "Keep a steady down-up pattern for 2 minutes", domain: "craft", parentId: "s1", xpReward: 60, unlockedAt: null },
+  { id: "s4", tree: "Guitar", name: "Barre chords", requirement: "Play F cleanly 10 times in a row", domain: "craft", parentId: "s2", xpReward: 120, unlockedAt: null },
+  { id: "s5", tree: "Guitar", name: "First full song", requirement: "Play a whole song start to finish", domain: "craft", parentId: "s3", xpReward: 200, unlockedAt: null },
+  { id: "s6", tree: "Cooking", name: "Knife basics", requirement: "Dice an onion evenly", domain: "craft", parentId: null, xpReward: 40, unlockedAt: null },
+];
+
+export const sampleLoot: LootItem[] = [
+  { id: "l1", name: "Fancy coffee", description: "From the good place on the corner", cost: 30, repeatable: true },
+  { id: "l2", name: "Movie night", description: null, cost: 80, repeatable: true },
+  { id: "l3", name: "New headphones", description: "The ones I keep looking at", cost: 1500, repeatable: false },
+];
+
+export interface SampleWorld {
+  sheet: SheetData;
+  /** Raw counts the preview uses to judge achievements. */
+  counts: { activityEntries: number; longestMinutes: number; questsCompleted: number; bossesDefeated: number; purchases: number };
+}
+
+/** The whole sample game for the preview page. */
+export function buildSampleWorld(now: Date): SampleWorld {
   const entries = buildSampleEntries(now);
   const today = toDay(now);
   const xpByDay = new Map<string, number>();
   for (const e of entries) xpByDay.set(e.occurredOn, (xpByDay.get(e.occurredOn) ?? 0) + e.xp);
+  const days = [...xpByDay].map(([day, xp]) => ({ day, xp }));
+  const restDays = [addDays(today, -SAMPLE_REST_DAYS_AGO)];
+  const totals = addToTotals(emptyTotals(), entries);
+  const minuteSlugs = new Set(gameConfig.activities.filter((a) => a.unit === "minute").map((a) => a.slug));
+  const purchases: Purchase[] = [{ id: "p1", itemId: "l1", cost: 30, purchasedAt: `${addDays(today, -2)}T09:00:00Z`, redeemedAt: null }];
+  const counts = {
+    activityEntries: entries.length,
+    longestMinutes: Math.max(0, ...entries.filter((e) => e.activitySlug && minuteSlugs.has(e.activitySlug)).map((e) => e.units)),
+    questsCompleted: 0,
+    bossesDefeated: 0,
+    purchases: purchases.length,
+  };
+  const stats = buildStats({ days, restDays, today, totals, skills: sampleSkills, ...counts });
+  // Sample achievements already earned, dated a few days back.
+  const unlocked = Object.fromEntries(newlyEarned(stats, {}).map((slug, i) => [slug, `${addDays(today, -(i + 2))}T12:00:00Z`]));
   return {
-    days: [...xpByDay].map(([day, xp]) => ({ day, xp })),
-    restDays: [addDays(today, -SAMPLE_REST_DAYS_AGO)],
-    streaksReady: true,
-    displayName: "Player One",
-    title: "Apprentice of many paths",
-    bio: null,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    today,
-    totals: addToTotals(emptyTotals(), entries),
-    recent: [...entries].reverse().slice(0, 10),
-    todayCounts: {},
-    quests: sampleQuests,
-    dailies: sampleDailies,
+    counts,
+    sheet: {
+      days,
+      restDays,
+      streaksReady: true,
+      depthReady: true,
+      theme: "crimson",
+      displayName: "Player One",
+      title: "Apprentice of many paths",
+      bio: null,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      today,
+      totals,
+      recent: [...entries].reverse().slice(0, 10),
+      todayCounts: {},
+      quests: sampleQuests,
+      dailies: sampleDailies,
+      skills: sampleSkills,
+      shop: { items: sampleLoot, purchases },
+      goldSpent: purchases.reduce((sum, p) => sum + p.cost, 0),
+      achievements: { stats, unlocked },
+    },
   };
 }

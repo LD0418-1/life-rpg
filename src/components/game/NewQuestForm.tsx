@@ -11,7 +11,7 @@ const fieldClass = "w-full bg-ink-3 px-3 py-2 text-paper outline-none focus:ring
 const labelClass = "mb-1 block font-label text-sm font-extrabold tracking-widest text-muted uppercase";
 
 /** Collapsible form for starting a new quest or daily. */
-export function NewQuestForm({ onCreate }: { onCreate: (input: NewQuestInput) => Promise<true | undefined> }) {
+export function NewQuestForm({ onCreate }: { onCreate: (input: NewQuestInput) => Promise<boolean> }) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<NewQuestInput["kind"]>("main");
   const [title, setTitle] = useState("");

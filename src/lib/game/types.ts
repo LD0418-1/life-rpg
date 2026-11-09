@@ -1,8 +1,14 @@
 // Shapes the app passes around. These mirror the tables in
 // supabase/migrations/0001_init.sql (camelCase here, snake_case there).
 
+import type { AchievementStats } from "./achievements";
+import type { LootItem, NewLootInput, Purchase } from "./loot";
+import type { NewSkillInput, Skill } from "./skills";
+
 export interface LogEntry {
   id: string;
+  /** manual, quest, skill, ... */
+  source?: string;
   activitySlug: string | null;
   questId?: string | null;
   domain: string;
@@ -74,6 +80,22 @@ export interface SheetData {
   restDays: string[];
   /** False until the 0003_streaks.sql database script has been run. */
   streaksReady: boolean;
+  /** False until the 0004_depth.sql database script has been run. */
+  depthReady: boolean;
+  /** Accent theme id (see lib/game/themes.ts). */
+  theme: string;
+  skills: Skill[];
+  /** Owner only: visitors never see the shop. */
+  shop: { items: LootItem[]; purchases: Purchase[] } | null;
+  goldSpent: number;
+  achievements: { stats: AchievementStats; unlocked: Record<string, string> };
+}
+
+export interface AchievementSync {
+  stats: AchievementStats;
+  unlocked: Record<string, string>;
+  /** Slugs unlocked by this sync, for the celebration. */
+  newly: string[];
 }
 
 export interface LogOptions {
@@ -102,4 +124,13 @@ export interface SheetBackend {
   abandonQuest(questId: string): Promise<void>;
   planRest(day: string): Promise<void>;
   unplanRest(day: string): Promise<void>;
+  createSkill(input: NewSkillInput): Promise<Skill>;
+  deleteSkill(skillId: string): Promise<void>;
+  unlockSkill(skillId: string): Promise<LogEntry>;
+  createLoot(input: NewLootInput): Promise<LootItem>;
+  archiveLoot(itemId: string): Promise<void>;
+  buyLoot(itemId: string): Promise<Purchase>;
+  redeemPurchase(purchaseId: string): Promise<Purchase>;
+  /** Re-checks achievements after something happened. */
+  syncAchievements(): Promise<AchievementSync>;
 }

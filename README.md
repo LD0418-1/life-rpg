@@ -5,10 +5,15 @@ My life, played as a game. It's a motivation engine that keeps me on track, and 
 **Status:** Phase 2 in progress. Login, saving, quests and dailies work against Supabase. Without Supabase settings, the home page falls back to an interactive **preview with sample data**, which is also always available at `/preview`. See [ROADMAP.md](ROADMAP.md).
 
 ### Pages
-- `/` is your character sheet. You get the full controls when logged in as the owner, visitors get a read-only view if your profile is public, and everyone else sees "coming soon".
-- `/login` is the owner login.
-- `/settings` (owner only) is where you set your name, title, bio, and whether your profile is public.
-- `/preview` is always the sample-data preview, which is safe to click around in.
+A sidebar on big screens and a tab bar on phones link these sections:
+- `/` **Today**: your character, quick log, streak, dailies, recent log.
+- `/quests`: bosses, main and side quests, plus the new-quest form.
+- `/skills`: stats radar, level unlocks (color themes) and skill trees.
+- `/trophies`: achievements. Hidden ones show as "???" until earned.
+- `/shop` (owner only): the loot shop and your inventory.
+- `/settings` (owner only): name, title, bio, theme, public profile switch.
+- `/login`: the owner login.
+- `/preview/...`: the same pages running on sample data in your browser, so nothing is saved.
 
 ## Run it
 
@@ -55,6 +60,7 @@ supabase/migrations/
   0001_init.sql               database tables + security rules
   0002_totals_and_rewards.sql fast XP totals + all-or-nothing daily/quest rewards
   0003_streaks.sql            XP per day + planned rest days (for streaks and momentum)
+  0004_depth.sql              skill unlocks, loot shop purchases, color theme
 ```
 
 ### The scoring rules (`src/config/xp.json`)
@@ -68,6 +74,10 @@ supabase/migrations/
 - **streak**: days in a row with any XP. Every 7 streak days earns a **shield** (max 3), and a missed day uses one automatically instead of resetting your streak.
 - **rest days**: plan 1 per week (Mon–Sun) by tapping today or a future day in the Streak calendar. They keep your streak safe, but can't be added after the fact.
 - **momentum** (0–100): +10 per active day, −15% per missed day, unchanged on rest days. Momentum at the start of a day gives that day's activities up to **+20% XP**.
+- **skills**: unlocking one pays its XP (plus 10% as gold). A skill needs the one above it unlocked first.
+- **loot shop**: your gold balance = gold earned − gold spent. Rewards can be repeatable or one-time.
+- **achievements** (`src/lib/game/achievements.ts`) are judged on the server from your database and recorded once earned.
+- **themes** (`src/lib/game/themes.ts`) unlock at levels 5, 10, 15 and 20.
 - Streaks are *replayed* from your log every time (`src/lib/game/streaks.ts`), so nothing can drift out of sync, and changing these numbers re-tells your history with the new rules.
 
 ### The database (`supabase/migrations/0001_init.sql`)
@@ -82,7 +92,7 @@ The style is an original high-contrast JRPG menu look: ink black, paper white an
 ## Setting up Supabase
 
 1. Create a project at supabase.com.
-2. In **SQL Editor**, run each file in `supabase/migrations/` in order: `0001_init.sql`, `0002_totals_and_rewards.sql`, `0003_streaks.sql`.
+2. In **SQL Editor**, run each file in `supabase/migrations/` in order: `0001_init.sql`, `0002_totals_and_rewards.sql`, `0003_streaks.sql`, `0004_depth.sql`.
 3. In **Authentication → Users → Add user**, create your user and tick **Auto Confirm User**.
 4. In **Authentication → Sign In / Providers**, turn off **Allow new users to sign up**.
 5. Make yourself the owner by running this in the SQL Editor:

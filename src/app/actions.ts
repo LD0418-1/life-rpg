@@ -19,7 +19,25 @@ import type { LogEntry, LogOptions, NewQuestInput, Quest, QuestEdit } from "@/li
 import { checkPlanRest, checkUnplanRest, computeProgress } from "@/lib/game/streaks";
 import { dayInTimeZone, scoreEntry } from "@/lib/game/xp";
 import { createClient } from "@/lib/supabase/server";
-import { type LogEntryRow, QUEST_COLUMNS, type QuestRow, toLogEntry, toQuest } from "@/lib/supabase/rows";
+import { ENTRY_COLUMNS, type LogEntryRow, QUEST_COLUMNS, type QuestRow, toLogEntry, toQuest } from "@/lib/supabase/rows";
+import { loadTotals } from "@/lib/data";
+import { gameConfig } from "@/lib/game/config";
+import { type LootItem, type NewLootInput, type Purchase, normalizeNewLoot } from "@/lib/game/loot";
+import { type NewSkillInput, type Skill, deleteBlocker, normalizeNewSkill } from "@/lib/game/skills";
+import { checkTheme } from "@/lib/game/themes";
+import type { AchievementSync } from "@/lib/game/types";
+import { summarizeTotals } from "@/lib/game/xp";
+import {
+  NEEDS_0004,
+  SKILL_COLUMNS,
+  type SkillRow,
+  isMissingFunction,
+  loadAchievementStats,
+  loadSkills,
+  loadUnlockedAchievements,
+  recordAchievements,
+  toSkill,
+} from "@/lib/supabase/depth-data";
 import { loadStreakData } from "@/lib/supabase/streak-data";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -45,7 +63,6 @@ async function run<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
   }
 }
 
-const ENTRY_COLUMNS = "id, activity_slug, quest_id, domain, units, difficulty, note, xp, gold, occurred_on";
 
 /** Loads one active quest with its objectives. */
 async function loadActiveQuest(supabase: Supabase, questId: string): Promise<Quest> {
@@ -241,6 +258,122 @@ export async function unplanRestAction(day: string): Promise<ActionResult<void>>
   });
 }
 
+// ---------- Skill trees ----------
+
+export async function createSkillAction(input: NewSkillInput): Promise<ActionResult<Skill>> {
+  return run(async () => {
+    const { supabase } = await ownerContext();
+    const skill = normalizeNewSkill(input, await loadSkills(supabase));
+    const { data, error } = await supabase
+      .from("skills")
+      .insert({
+        tree: skill.tree,
+        name: skill.name,
+        requirement: skill.requirement,
+        domain: skill.domain,
+        parent_id: skill.parentId,
+        xp_reward: skill.xpReward,
+      })
+      .select(SKILL_COLUMNS)
+      .single<SkillRow>();
+    if (error) throw new Error(error.message);
+    return toSkill(data);
+  });
+}
+
+export async function deleteSkillAction(skillId: string): Promise<ActionResult<void>> {
+  return run(async () => {
+    const { supabase } = await ownerContext();
+    const blocker = deleteBlocker(await loadSkills(supabase), skillId);
+    if (blocker) throw new Error(blocker);
+    const { error } = await supabase.from("skills").delete().eq("id", skillId).is("unlocked_at", null);
+    if (error) throw new Error(error.message);
+  });
+}
+
+export async function unlockSkillAction(skillId: string): Promise<ActionResult<LogEntry>> {
+  return run(async () => {
+    const { supabase, today } = await ownerContext();
+    const { data: skill } = await supabase.from("skills").select("xp_reward").eq("id", skillId).maybeSingle<{ xp_reward: number }>();
+    const gold = Math.round((skill?.xp_reward ?? 0) * gameConfig.gold.perXp);
+    const { data, error } = await supabase.rpc("unlock_skill", { p_skill_id: skillId, p_gold: gold, p_day: today });
+    if (isMissingFunction(error)) throw new Error(NEEDS_0004);
+    if (error) throw new Error(error.message);
+    const row = (data as LogEntryRow[] | null)?.[0];
+    if (!row) throw new Error("The skill unlocked, but its reward wasn't returned. Refresh the page.");
+    return toLogEntry(row);
+  });
+}
+
+// ---------- Loot shop ----------
+
+export async function createLootAction(input: NewLootInput): Promise<ActionResult<LootItem>> {
+  return run(async () => {
+    const item = normalizeNewLoot(input);
+    const { supabase } = await ownerContext();
+    const { data, error } = await supabase.from("loot_items").insert(item).select("id, name, description, cost, repeatable").single<LootItem>();
+    if (error) throw new Error(error.message);
+    return data;
+  });
+}
+
+export async function archiveLootAction(itemId: string): Promise<ActionResult<void>> {
+  return run(async () => {
+    const { supabase } = await ownerContext();
+    const { error } = await supabase.from("loot_items").update({ archived: true }).eq("id", itemId);
+    if (error) throw new Error(error.message);
+  });
+}
+
+type PurchaseRow = { id: string; item_id: string; cost: number; purchased_at: string; redeemed_at: string | null };
+const toPurchase = (p: PurchaseRow): Purchase => ({ id: p.id, itemId: p.item_id, cost: p.cost, purchasedAt: p.purchased_at, redeemedAt: p.redeemed_at });
+
+export async function buyLootAction(itemId: string): Promise<ActionResult<Purchase>> {
+  return run(async () => {
+    const { supabase } = await ownerContext();
+    const { data, error } = await supabase.rpc("buy_loot", { p_item_id: itemId });
+    if (isMissingFunction(error)) throw new Error(NEEDS_0004);
+    if (error) throw new Error(error.message);
+    const row = (data as PurchaseRow[] | null)?.[0];
+    if (!row) throw new Error("The purchase wasn't returned. Refresh the page.");
+    return toPurchase(row);
+  });
+}
+
+export async function redeemPurchaseAction(purchaseId: string): Promise<ActionResult<Purchase>> {
+  return run(async () => {
+    const { supabase } = await ownerContext();
+    const { data, error } = await supabase
+      .from("loot_purchases")
+      .update({ redeemed_at: new Date().toISOString() })
+      .eq("id", purchaseId)
+      .is("redeemed_at", null)
+      .select("id, item_id, cost, purchased_at, redeemed_at")
+      .maybeSingle<PurchaseRow>();
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error("That reward was already used.");
+    return toPurchase(data);
+  });
+}
+
+// ---------- Achievements ----------
+
+/** Re-checks achievements from the database and records new ones. */
+export async function syncAchievementsAction(): Promise<ActionResult<AchievementSync>> {
+  return run(async () => {
+    const { supabase, today } = await ownerContext();
+    const [totals, streak, skills, unlocked] = await Promise.all([
+      loadTotals(supabase),
+      loadStreakData(supabase),
+      loadSkills(supabase),
+      loadUnlockedAchievements(supabase),
+    ]);
+    const stats = await loadAchievementStats(supabase, { today, totals, streak, skills });
+    const recorded = await recordAchievements(supabase, stats, unlocked);
+    return { stats, unlocked: recorded.unlocked, newly: recorded.newly };
+  });
+}
+
 // ---------- Profile ----------
 
 /** Saves the browser's time zone so "today" matches where you are. */
@@ -268,19 +401,22 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
     if (title.length > 60) throw new Error("Keep your title under 60 characters.");
     if (bio.length > 280) throw new Error("Keep your bio under 280 characters.");
     const { supabase } = await ownerContext();
-    const { error } = await supabase
-      .from("profile")
-      .update({
-        display_name: displayName,
-        title: title || null,
-        bio: bio || null,
-        is_public: formData.get("is_public") === "on",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", 1);
+    const update: Record<string, unknown> = {
+      display_name: displayName,
+      title: title || null,
+      bio: bio || null,
+      is_public: formData.get("is_public") === "on",
+      updated_at: new Date().toISOString(),
+    };
+    const theme = formData.get("theme");
+    if (typeof theme === "string" && theme) {
+      checkTheme(theme, summarizeTotals(await loadTotals(supabase)).overall.level);
+      update.theme = theme;
+    }
+    const { error } = await supabase.from("profile").update(update).eq("id", 1);
     if (error) throw new Error(error.message);
   });
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   redirect(result.ok ? "/settings?saved=1" : `/settings?error=${encodeURIComponent(result.error)}`);
 }
 

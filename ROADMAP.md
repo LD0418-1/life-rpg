@@ -36,11 +36,13 @@
 - [x] Effort weighting (units + difficulty)
 
 ## Phase 4: Depth
-- [ ] Skill trees (visual node graph)
-- [ ] Boss fights: full victory screen (HP bar is in the preview)
-- [ ] Achievements, including hidden ones
-- [ ] Loot shop
-- [ ] Unlocks by level
+- [x] Sidebar (desktop) and tab bar (phone) with separate pages: Today, Quests, Skills, Trophies, Shop
+- [x] Skill trees (visual node graph, milestones, unlock pays XP + gold)
+- [x] Boss fights: full victory screen
+- [x] Achievements (21, including 3 hidden), checked on the server
+- [x] Loot shop with inventory ("use it") and gold balance
+- [x] Unlocks by level: color themes at levels 5, 10, 15, 20
+- [ ] Run `0004_depth.sql` on the live database
 
 ## Phase 5: World map
 - [ ] Map with one region per domain that grows as it levels

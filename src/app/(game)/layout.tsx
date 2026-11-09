@@ -1,17 +1,25 @@
 import Link from "next/link";
-import { LiveSheet } from "@/components/game/LiveSheet";
-import { PreviewLoader } from "@/components/game/PreviewLoader";
+import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
+import { LiveGame } from "@/components/game/LiveGame";
 import { loadSheet } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
-// Always render fresh: the page depends on who's logged in and today's data.
+// Always render fresh: the pages depend on who's logged in and today's data.
 export const dynamic = "force-dynamic";
 
-export default async function Home() {
-  if (!isSupabaseConfigured()) return <PreviewLoader />;
+/** Loads the game once for every page (Today, Quests, Skills, Trophies, Shop, Settings). */
+export default async function GameLayout({ children }: { children: ReactNode }) {
+  if (!isSupabaseConfigured()) redirect("/preview");
 
   const result = await loadSheet();
-  if (result.kind === "sheet") return <LiveSheet initial={result.sheet} isOwner={result.isOwner} />;
+  if (result.kind === "sheet") {
+    return (
+      <LiveGame initial={result.sheet} isOwner={result.isOwner}>
+        {children}
+      </LiveGame>
+    );
+  }
 
   return (
     <main className="grid min-h-dvh place-items-center px-4">

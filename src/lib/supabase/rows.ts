@@ -3,6 +3,7 @@ import type { LogEntry, Quest } from "@/lib/game/types";
 
 export interface LogEntryRow {
   id: string;
+  source?: string;
   activity_slug: string | null;
   quest_id: string | null;
   domain: string;
@@ -34,11 +35,15 @@ export interface QuestRow {
 
 export interface ProfileRow {
   display_name: string;
+  /** Missing until 0004_depth.sql has been run. */
+  theme?: string;
   title: string | null;
   bio: string | null;
   timezone: string;
   is_public: boolean;
 }
+
+export const ENTRY_COLUMNS = "id, source, activity_slug, quest_id, domain, units, difficulty, note, xp, gold, occurred_on";
 
 export const QUEST_COLUMNS =
   "id, kind, title, domain, xp_reward, gold_reward, is_boss, quest_objectives(id, title, done_at, position)";
@@ -46,6 +51,7 @@ export const QUEST_COLUMNS =
 export function toLogEntry(r: LogEntryRow): LogEntry {
   return {
     id: r.id,
+    source: r.source,
     activitySlug: r.activity_slug,
     questId: r.quest_id,
     domain: r.domain,
