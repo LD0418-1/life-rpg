@@ -4,20 +4,25 @@
 - [x] Next.js + TypeScript + Tailwind project
 - [x] Design tokens, fonts, base components (Panel, XpBar, SlashButton)
 - [x] README explaining the code layout
-- [ ] Connect GitHub repo `life-rpg`
-- [ ] Supabase project + Vercel deploy
+- [x] Connect GitHub repo `life-rpg`
+- [x] Supabase project created
+- [ ] Vercel deploy
 
 ## Phase 1: Foundation ✅
 - [x] Database schema with owner-only writes and public read (`supabase/migrations/0001_init.sql`, tested on Postgres 16)
 - [x] `xp.json` scoring config with validation
 - [x] XP/level math with tests (`npm test`)
-- [ ] Owner login (needs Supabase)
+- [x] Owner login
 
 ## Phase 2: MVP core loop
 - [x] Character sheet, radar chart, quick log, dailies, quests, level-up moment (preview with sample data)
-- [ ] Save to Supabase instead of sample data
+- [x] Save to Supabase instead of sample data (server actions; XP computed on the server)
+- [x] Create and abandon quests and dailies
+- [x] Read-only visitor view when profile is public; "coming soon" otherwise
+- [ ] Verify end-to-end against the live Supabase project
+- [ ] Edit quests (rename, add objectives)
 - [ ] Custom units / note when logging (long-press a quick-log button)
-- [ ] Create / edit quests and dailies
+- [ ] Settings page (name, title, public on/off)
 - [ ] Installable PWA (home-screen icon, offline shell)
 - [ ] Deploy, then **use it daily for 2 weeks** and adjust
 

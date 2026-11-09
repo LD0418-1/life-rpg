@@ -117,22 +117,66 @@ export interface CharacterSummary {
   goldEarned: number;
 }
 
-export function summarize(entries: ReadonlyArray<LedgerEntry>, config: GameConfig = gameConfig): CharacterSummary {
-  const xpByDomain: Record<DomainId, number> = Object.fromEntries(config.domains.map((d) => [d.id, 0]));
+/** XP and gold totals per domain: what the database's domain_totals view returns. */
+export type DomainTotals = Record<DomainId, { xp: number; gold: number }>;
+
+export function emptyTotals(config: GameConfig = gameConfig): DomainTotals {
+  return Object.fromEntries(config.domains.map((d) => [d.id, { xp: 0, gold: 0 }]));
+}
+
+/** Adds entries to totals (returns a new object). Unknown domains are ignored. */
+export function addToTotals(totals: DomainTotals, entries: ReadonlyArray<LedgerEntry>): DomainTotals {
+  const next: DomainTotals = Object.fromEntries(Object.entries(totals).map(([id, t]) => [id, { ...t }]));
+  for (const e of entries) {
+    if (!(e.domain in next)) continue; // domain was removed from config
+    next[e.domain].xp += e.xp;
+    next[e.domain].gold += e.gold;
+  }
+  return next;
+}
+
+export function summarizeTotals(totals: DomainTotals, config: GameConfig = gameConfig): CharacterSummary {
   let totalXp = 0;
   let goldEarned = 0;
-  for (const e of entries) {
-    if (!(e.domain in xpByDomain)) continue; // ignore domains removed from config
-    xpByDomain[e.domain] += e.xp;
-    totalXp += e.xp;
-    goldEarned += e.gold;
+  const domains: CharacterSummary["domains"] = {};
+  for (const d of config.domains) {
+    const t = totals[d.id] ?? { xp: 0, gold: 0 };
+    totalXp += t.xp;
+    goldEarned += t.gold;
+    domains[d.id] = { ...levelFromXp(t.xp, config.levels.domain), totalXp: t.xp };
   }
-  const domains = Object.fromEntries(
-    Object.entries(xpByDomain).map(([id, xp]) => [id, { ...levelFromXp(xp, config.levels.domain), totalXp: xp }]),
-  );
   return {
     overall: { ...levelFromXp(totalXp, config.levels.overall), totalXp },
     domains,
     goldEarned,
   };
+}
+
+export function summarize(entries: ReadonlyArray<LedgerEntry>, config: GameConfig = gameConfig): CharacterSummary {
+  return summarizeTotals(addToTotals(emptyTotals(config), entries), config);
+}
+
+/** Which level-up (if any) adding `entry` causes. Overall wins over domain. */
+export function detectLevelUp(
+  before: DomainTotals,
+  entry: LedgerEntry,
+  config: GameConfig = gameConfig,
+): { scope: "overall" | DomainId; level: number } | null {
+  const a = summarizeTotals(before, config);
+  const b = summarizeTotals(addToTotals(before, [entry]), config);
+  if (b.overall.level > a.overall.level) return { scope: "overall", level: b.overall.level };
+  const d = entry.domain;
+  if (b.domains[d] && b.domains[d].level > a.domains[d].level) return { scope: d, level: b.domains[d].level };
+  return null;
+}
+
+// ---------- Dates ----------
+
+/** The calendar day (YYYY-MM-DD) for `date` in an IANA time zone like "Asia/Shanghai". */
+export function dayInTimeZone(date: Date, timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+  }
 }

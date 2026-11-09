@@ -2,7 +2,12 @@
 
 My life, played as a game. It's a motivation engine that keeps me on track, and a public showcase of what I've done.
 
-**Status:** Phase 0 and Phase 1 are done. The home page is an interactive **preview with sample data**: tap the quick-log buttons, check off dailies, level up. Nothing is saved until Supabase is connected (Phase 2). See [ROADMAP.md](ROADMAP.md).
+**Status:** Phase 2 in progress. Login, saving, quests and dailies work against Supabase. Without Supabase settings, the home page falls back to an interactive **preview with sample data**, which is also always available at `/preview`. See [ROADMAP.md](ROADMAP.md).
+
+### Pages
+- `/` is your character sheet. You get the full controls when logged in as the owner, visitors get a read-only view if your profile is public, and everyone else sees "coming soon".
+- `/login` is the owner login.
+- `/preview` is always the sample-data preview, which is safe to click around in.
 
 ## Run it
 
@@ -23,15 +28,25 @@ src/
     xp.ts                     the game math: levels, XP per entry, diminishing returns
     xp.test.ts                tests for the math (run `npm test`)
     types.ts                  shapes of log entries, quests, etc.
+    quests.ts                 rules for creating quests (shared by preview + server)
+  lib/supabase/               database connection, row ↔ app-object mapping
+  lib/data.ts                 loads the character sheet from the database (server only)
   lib/sample-data.ts          fake history for the preview
+  middleware.ts               keeps your login session fresh
   components/
     ui/                       reusable style pieces: Panel, XpBar, SlashButton
-    game/                     game screens: CharacterSheetPreview, StatRadar, LevelUpOverlay
+    game/
+      CharacterSheet.tsx      the main screen; works in preview, owner and visitor modes
+      LiveSheet.tsx           connects CharacterSheet to the database
+      PreviewSheet.tsx        connects CharacterSheet to in-memory sample data
+      NewQuestForm.tsx, StatRadar.tsx, LevelUpOverlay.tsx
   app/
+    actions.ts                server actions: the ONLY code that writes to the database
     globals.css               design tokens (colors, fonts) + slashed shapes + animations
-    page.tsx                  home page
+    page.tsx, login/, preview/
 supabase/migrations/
   0001_init.sql               database tables + security rules
+  0002_totals_and_rewards.sql fast XP totals + all-or-nothing daily/quest rewards
 ```
 
 ### The scoring rules (`src/config/xp.json`)
@@ -52,11 +67,20 @@ supabase/migrations/
 
 The style is an original high-contrast JRPG menu look: ink black, paper white and crimson, with sliced corners, slanted bars, halftone dots and stamp-style animations. All colors are tokens at the top of `src/app/globals.css`. Fonts (Anton, Barlow Condensed, Inter) are self-hosted via `@fontsource`.
 
-## Setting up Supabase (Phase 2)
+## Setting up Supabase
 
 1. Create a project at supabase.com.
-2. In **SQL Editor**, run `supabase/migrations/0001_init.sql`.
-3. In **Authentication → Users**, create your user. Then, in **Authentication → Providers**, turn off new sign-ups.
-4. Make yourself the owner by running this in the SQL Editor:
-   `insert into app_owner (user_id) values ('<your user id>');`
-5. Copy the project URL and anon key into `.env.local` (details come with Phase 2).
+2. In **SQL Editor**, run `supabase/migrations/0001_init.sql`, then run `0002_totals_and_rewards.sql`.
+3. In **Authentication → Users → Add user**, create your user and tick **Auto Confirm User**.
+4. In **Authentication → Sign In / Providers**, turn off **Allow new users to sign up**.
+5. Make yourself the owner by running this in the SQL Editor:
+   `insert into app_owner (user_id) values ('<your user UID>');`
+6. Copy `.env.example` to `.env.local`. Fill in the Project URL and the **publishable** key from **Project Settings → API Keys**. Never use the secret / service_role key.
+7. Optional: make your profile visible to visitors:
+   `update profile set is_public = true, display_name = 'Your Name', title = 'Your title';`
+
+## Deploying on Vercel
+
+1. At vercel.com, go to **Add New → Project** and import `life-rpg` from GitHub.
+2. Under **Environment Variables**, add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+3. Click **Deploy**. Every push to `main` redeploys automatically.

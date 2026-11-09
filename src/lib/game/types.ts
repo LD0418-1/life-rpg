@@ -31,6 +31,7 @@ export interface Quest {
   isBoss?: boolean;
   bossHp?: number;
   objectives: QuestObjective[];
+  completed?: boolean;
   /** For dailies: done today? */
   doneToday?: boolean;
 }
@@ -41,4 +42,38 @@ export function toDay(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+export interface NewQuestInput {
+  kind: "main" | "side" | "daily";
+  title: string;
+  domain: string;
+  xpReward: number;
+  isBoss: boolean;
+  objectives: string[];
+}
+
+/** Everything the character sheet shows. Loaded from Supabase, or built from sample data. */
+export interface SheetData {
+  displayName: string;
+  title: string | null;
+  timezone: string;
+  /** Today's date (YYYY-MM-DD) in the profile's time zone. */
+  today: string;
+  totals: Record<string, { xp: number; gold: number }>;
+  /** Newest first. */
+  recent: LogEntry[];
+  /** How many times each activity was logged today (for diminishing returns). */
+  todayCounts: Record<string, number>;
+  quests: Quest[];
+  dailies: Quest[];
+}
+
+/** What the sheet calls when you do something. Preview = in memory, live = Supabase. */
+export interface SheetBackend {
+  logActivity(slug: string, difficulty: number): Promise<LogEntry>;
+  completeDaily(questId: string): Promise<LogEntry | null>;
+  setObjective(questId: string, objectiveId: string, done: boolean): Promise<LogEntry | null>;
+  createQuest(input: NewQuestInput): Promise<Quest>;
+  abandonQuest(questId: string): Promise<void>;
 }

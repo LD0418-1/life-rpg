@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { type GameConfig, gameConfig, getActivity, validateConfig } from "./config";
 import {
+  addToTotals,
+  dayInTimeZone,
+  detectLevelUp,
+  emptyTotals,
+  summarizeTotals,
   levelFromXp,
   repeatIndexFor,
   repeatMultiplier,
@@ -89,6 +94,36 @@ describe("summarize", () => {
     expect(s.domains.craft.totalXp).toBe(0);
     expect(s.overall.totalXp).toBe(200);
     expect(s.goldEarned).toBe(20);
+  });
+});
+
+describe("totals and level-ups", () => {
+  it("summarizeTotals matches summarize", () => {
+    const entries = [
+      { domain: "body", xp: 150, gold: 15 },
+      { domain: "mind", xp: 50, gold: 5 },
+    ];
+    expect(summarizeTotals(addToTotals(emptyTotals(), entries))).toEqual(summarize(entries));
+  });
+
+  it("detects a domain level-up", () => {
+    const before = addToTotals(emptyTotals(), [{ domain: "body", xp: 90, gold: 0 }]);
+    expect(detectLevelUp(before, { domain: "body", xp: 20, gold: 0 })).toEqual({ scope: "body", level: 2 });
+    expect(detectLevelUp(before, { domain: "body", xp: 5, gold: 0 })).toBeNull();
+  });
+
+  it("prefers the overall level-up when both happen", () => {
+    const before = addToTotals(emptyTotals(), [{ domain: "body", xp: 290, gold: 0 }]);
+    expect(detectLevelUp(before, { domain: "mind", xp: 120, gold: 0 })).toEqual({ scope: "overall", level: 2 });
+  });
+});
+
+describe("dayInTimeZone", () => {
+  it("uses the given time zone's calendar day", () => {
+    const instant = new Date("2026-11-09T20:00:00Z");
+    expect(dayInTimeZone(instant, "UTC")).toBe("2026-11-09");
+    expect(dayInTimeZone(instant, "Asia/Shanghai")).toBe("2026-11-10");
+    expect(dayInTimeZone(instant, "Not/AZone")).toBe("2026-11-09");
   });
 });
 

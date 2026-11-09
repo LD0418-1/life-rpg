@@ -1,8 +1,8 @@
 // Fake history for the preview page, scored with the real XP rules.
 // Replaced by your real data once Supabase is connected.
 import { gameConfig } from "./game/config";
-import { type LogEntry, type Quest, toDay } from "./game/types";
-import { repeatIndexFor, scoreEntry } from "./game/xp";
+import { type LogEntry, type Quest, type SheetData, toDay } from "./game/types";
+import { addToTotals, emptyTotals, repeatIndexFor, scoreEntry } from "./game/xp";
 
 // Small seeded random generator, so the sample looks the same on every load.
 function seeded(seed: number) {
@@ -82,3 +82,20 @@ export const sampleDailies: Quest[] = [
   { id: "d2", kind: "daily", title: "Read 10 pages", domain: "mind", xpReward: 15, goldReward: 2, objectives: [] },
   { id: "d3", kind: "daily", title: "No phone after 11pm", domain: "spirit", xpReward: 20, goldReward: 2, objectives: [] },
 ];
+
+/** A full sample character sheet for the preview page. */
+export function buildSampleSheet(now: Date): SheetData {
+  const entries = buildSampleEntries(now);
+  const today = toDay(now);
+  return {
+    displayName: "Player One",
+    title: "Apprentice of many paths",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    today,
+    totals: addToTotals(emptyTotals(), entries),
+    recent: [...entries].reverse().slice(0, 10),
+    todayCounts: {},
+    quests: sampleQuests,
+    dailies: sampleDailies,
+  };
+}
