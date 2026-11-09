@@ -42,7 +42,7 @@
 - [x] Achievements (21, including 3 hidden), checked on the server
 - [x] Loot shop with inventory ("use it") and gold balance
 - [x] Unlocks by level: color themes at levels 5, 10, 15, 20
-- [ ] Run `0004_depth.sql` on the live database
+- [x] Run `0004_depth.sql` on the live database
 
 ## Phase 5: World map
 - [ ] Map with one region per domain that grows as it levels
