@@ -90,6 +90,7 @@ export function buildSampleSheet(now: Date): SheetData {
   return {
     displayName: "Player One",
     title: "Apprentice of many paths",
+    bio: null,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     today,
     totals: addToTotals(emptyTotals(), entries),

@@ -6,12 +6,16 @@ import { useEffect, useMemo } from "react";
 import {
   type ActionResult,
   abandonQuestAction,
+  addObjectiveAction,
   completeDailyAction,
   createQuestAction,
+  deleteEntryAction,
   logActivityAction,
+  removeObjectiveAction,
   setObjectiveAction,
   setTimezoneAction,
   signOutAction,
+  updateQuestAction,
 } from "@/app/actions";
 import type { SheetBackend, SheetData } from "@/lib/game/types";
 import { CharacterSheet } from "./CharacterSheet";
@@ -29,10 +33,14 @@ export function LiveSheet({ initial, isOwner }: { initial: SheetData; isOwner: b
 
   const backend = useMemo<SheetBackend>(
     () => ({
-      logActivity: (slug, difficulty) => unwrap(logActivityAction(slug, difficulty)),
+      logActivity: (slug, options) => unwrap(logActivityAction(slug, options)),
+      deleteEntry: (entryId) => unwrap(deleteEntryAction(entryId)),
       completeDaily: (questId) => unwrap(completeDailyAction(questId)),
       setObjective: (_questId, objectiveId, done) => unwrap(setObjectiveAction(objectiveId, done)),
       createQuest: (input) => unwrap(createQuestAction(input)),
+      updateQuest: (questId, edit) => unwrap(updateQuestAction(questId, edit)),
+      addObjective: (questId, title) => unwrap(addObjectiveAction(questId, title)),
+      removeObjective: (questId, objectiveId) => unwrap(removeObjectiveAction(questId, objectiveId)),
       abandonQuest: (questId) => unwrap(abandonQuestAction(questId)),
     }),
     [],
@@ -54,12 +62,18 @@ export function LiveSheet({ initial, isOwner }: { initial: SheetData; isOwner: b
       initial={initial}
       backend={backend}
       mode={isOwner ? "owner" : "visitor"}
-      footer={
+      toolbar={
         isOwner ? (
-          <form action={signOutAction}>
-            <button className="font-label font-extrabold tracking-widest uppercase hover:text-paper">Log out</button>
-          </form>
-        ) : (
+          <>
+            <Link href="/settings" className="hover:text-paper">Settings</Link>
+            <form action={signOutAction}>
+              <button className="font-label font-extrabold tracking-widest uppercase hover:text-paper">Log out</button>
+            </form>
+          </>
+        ) : undefined
+      }
+      footer={
+        isOwner ? undefined : (
           <Link href="/login" className="font-label font-extrabold tracking-widest uppercase hover:text-paper">
             Owner login
           </Link>

@@ -2,12 +2,14 @@
 
 import { type ReactNode, useState } from "react";
 import { type Activity, gameConfig } from "@/lib/game/config";
-import type { LogEntry, Quest, SheetBackend, SheetData } from "@/lib/game/types";
+import type { LogEntry, LogOptions, Quest, QuestEdit, SheetBackend, SheetData } from "@/lib/game/types";
 import { addToTotals, detectLevelUp, scoreEntry, summarizeTotals } from "@/lib/game/xp";
 import { Panel } from "@/components/ui/Panel";
 import { XpBar } from "@/components/ui/XpBar";
 import { LevelUpOverlay, type LevelUpEvent } from "./LevelUpOverlay";
+import { LogDialog } from "./LogDialog";
 import { NewQuestForm } from "./NewQuestForm";
+import { QuestEditor } from "./QuestEditor";
 import { StatRadar } from "./StatRadar";
 
 export type SheetMode = "preview" | "owner" | "visitor";
@@ -27,11 +29,14 @@ export function CharacterSheet({
   initial,
   backend,
   mode,
+  toolbar,
   footer,
 }: {
   initial: SheetData;
   backend: SheetBackend;
   mode: SheetMode;
+  /** Small links at the top (e.g. Settings, Log out). */
+  toolbar?: ReactNode;
   footer?: ReactNode;
 }) {
   const [data, setData] = useState<SheetData>(initial);
@@ -40,6 +45,9 @@ export function CharacterSheet({
   const [levelUp, setLevelUp] = useState<LevelUpEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Set<string>>(new Set());
+  const [dialogFor, setDialogFor] = useState<Activity | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [undo, setUndo] = useState<{ key: number; entry: LogEntry } | null>(null);
   const canEdit = mode !== "visitor";
   const summary = summarizeTotals(data.totals);
 
@@ -78,8 +86,69 @@ export function CharacterSheet({
     if (up) setLevelUp({ key, scope: up.scope === "overall" ? "Overall" : domainLabel(up.scope), level: up.level });
   }
 
-  const logActivity = (a: Activity) =>
-    act(a.slug, async () => applyEntry(await backend.logActivity(a.slug, difficulty), a.slug));
+  /** Logs an activity. Returns true when saved (the dialog uses it to close). */
+  const logActivity = async (a: Activity, options: LogOptions = { difficulty }) => {
+    const saved = await act(a.slug, async () => {
+      const entry = await backend.logActivity(a.slug, options);
+      applyEntry(entry, a.slug);
+      const key = Date.now();
+      setUndo({ key, entry });
+      setTimeout(() => setUndo((u) => (u?.key === key ? null : u)), 6000);
+      return true as const;
+    });
+    return saved === true;
+  };
+
+  /** Deletes a logged activity and takes its XP back off the screen. */
+  const removeEntry = (entry: LogEntry) =>
+    act(`del:${entry.id}`, async () => {
+      await backend.deleteEntry(entry.id);
+      setUndo((u) => (u?.entry.id === entry.id ? null : u));
+      setData((d) => {
+        const counts = { ...d.todayCounts };
+        if (entry.activitySlug && entry.occurredOn === d.today) counts[entry.activitySlug] = Math.max(0, (counts[entry.activitySlug] ?? 1) - 1);
+        return {
+          ...d,
+          totals: addToTotals(d.totals, [{ domain: entry.domain, xp: -entry.xp, gold: -entry.gold }]),
+          recent: d.recent.filter((e) => e.id !== entry.id),
+          todayCounts: counts,
+        };
+      });
+    });
+
+  const replaceQuest = (q: Quest) =>
+    setData((d) => ({
+      ...d,
+      quests: d.quests.map((x) => (x.id === q.id ? q : x)),
+      dailies: d.dailies.map((x) => (x.id === q.id ? { ...q, doneToday: x.doneToday } : x)),
+    }));
+
+  const saveQuest = async (q: Quest, edit: QuestEdit) =>
+    (await act(`edit:${q.id}`, async () => {
+      replaceQuest(await backend.updateQuest(q.id, edit));
+      return true as const;
+    })) === true;
+
+  const addObjective = async (q: Quest, title: string) =>
+    (await act(`add:${q.id}`, async () => {
+      replaceQuest(await backend.addObjective(q.id, title));
+      return true as const;
+    })) === true;
+
+  const removeObjective = (q: Quest, objectiveId: string) =>
+    act(`rm:${objectiveId}`, async () => replaceQuest(await backend.removeObjective(q.id, objectiveId)));
+
+  const editButton = (q: Quest) =>
+    canEdit && !q.completed ? (
+      <button
+        onClick={() => setEditing(editing === q.id ? null : q.id)}
+        aria-label={`Edit ${q.title}`}
+        aria-expanded={editing === q.id}
+        className="px-1 text-muted opacity-60 hover:text-paper hover:opacity-100"
+      >
+        ✎
+      </button>
+    ) : null;
 
   const completeDaily = (q: Quest) =>
     act(q.id, async () => {
@@ -131,15 +200,46 @@ export function CharacterSheet({
         <div className="h-8" />
       )}
 
-      {error && (
-        <div role="alert" className="skew-box fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-xl items-center gap-3 bg-paper px-6 py-3 text-ink shadow-[5px_5px_0_var(--crimson)]">
-          <span className="font-label font-extrabold tracking-wider text-crimson uppercase">Error</span>
-          <span className="flex-1 text-sm">{error}</span>
-          <button onClick={() => setError(null)} className="font-display text-xl" aria-label="Dismiss error">
-            ×
-          </button>
-        </div>
+      {toolbar && (
+        <nav className="-mt-4 mb-6 flex items-center justify-end gap-5 font-label text-sm font-extrabold tracking-widest text-muted uppercase">
+          {toolbar}
+        </nav>
       )}
+
+      {dialogFor && (
+        <LogDialog
+          activity={dialogFor}
+          initialDifficulty={difficulty}
+          repeatIndex={data.todayCounts[dialogFor.slug] ?? 0}
+          onSubmit={(options) => logActivity(dialogFor, options)}
+          onClose={() => setDialogFor(null)}
+        />
+      )}
+
+      <div className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-xl flex-col gap-3">
+        {undo && (
+          <div className="skew-box flex items-center gap-3 bg-ink-3 px-6 py-3 shadow-[5px_5px_0_var(--crimson)]">
+            <span className="flex-1 text-sm">
+              Logged <strong>{activityOf(undo.entry.activitySlug)?.name}</strong> · +{undo.entry.xp} XP
+            </span>
+            <button
+              onClick={() => removeEntry(undo.entry)}
+              className="font-label font-extrabold tracking-widest text-volt uppercase hover:text-paper"
+            >
+              Undo
+            </button>
+          </div>
+        )}
+        {error && (
+          <div role="alert" className="skew-box flex items-center gap-3 bg-paper px-6 py-3 text-ink shadow-[5px_5px_0_var(--crimson)]">
+            <span className="font-label font-extrabold tracking-wider text-crimson uppercase">Error</span>
+            <span className="flex-1 text-sm">{error}</span>
+            <button onClick={() => setError(null)} className="font-display text-xl" aria-label="Dismiss error">
+              ×
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* ---------- Hero ---------- */}
       <header className="mb-10 grid items-end gap-6 md:grid-cols-[auto_1fr]">
@@ -151,6 +251,7 @@ export function CharacterSheet({
           <p className="font-label text-base font-semibold tracking-[0.3em] text-crimson uppercase">Life RPG</p>
           <h1 className="font-display text-5xl leading-[0.95] break-words uppercase sm:text-7xl">{data.displayName}</h1>
           {data.title && <p className="mt-2 font-label text-xl font-semibold tracking-wide text-muted uppercase">{data.title}</p>}
+          {data.bio && <p className="mt-2 max-w-2xl text-sm text-muted">{data.bio}</p>}
           <div className="mt-4 flex items-center gap-4">
             <div className="flex-1">
               <XpBar progress={summary.overall.progress} label="Overall level progress" size="lg" />
@@ -170,7 +271,7 @@ export function CharacterSheet({
         </div>
       </header>
 
-      <div className="grid gap-10 lg:grid-cols-[5fr_7fr]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         {/* ---------- Left column ---------- */}
         <div className="space-y-10">
           <Panel title="Stats" kicker="Domain levels">
@@ -216,14 +317,28 @@ export function CharacterSheet({
                       <span className="w-12 font-label text-xs font-extrabold tracking-wider text-muted">
                         {e.questId ? "QST" : domainGlyph(e.domain)}
                       </span>
-                      <span className="flex-1 truncate">
-                        {a?.name ?? e.note ?? "Quest reward"}
-                        {a && <span className="text-muted"> · {unitLabel(e.units, a.unit)}</span>}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">
+                          {a?.name ?? e.note ?? "Quest reward"}
+                          {a && <span className="text-muted"> · {unitLabel(e.units, a.unit)}</span>}
+                        </span>
+                        {a && e.note && <span className="block truncate text-xs text-muted italic">“{e.note}”</span>}
                       </span>
                       <span className="font-label font-extrabold text-crimson tabular-nums">+{e.xp}</span>
-                      <span className="w-14 text-right text-xs text-muted tabular-nums">
+                      <span className="w-12 text-right text-xs text-muted tabular-nums">
                         {e.occurredOn === data.today ? "today" : e.occurredOn.slice(5)}
                       </span>
+                      {canEdit && (
+                        <button
+                          onClick={() => window.confirm(`Delete this ${a?.name ?? "entry"} entry and its ${e.xp} XP?`) && removeEntry(e)}
+                          disabled={!a || busy.has(`del:${e.id}`)}
+                          aria-label={a ? `Delete ${a.name} entry` : "Quest rewards can't be deleted"}
+                          title={a ? "Delete entry" : "Quest rewards can't be deleted"}
+                          className="w-5 text-muted opacity-60 hover:text-crimson hover:opacity-100 disabled:invisible"
+                        >
+                          ×
+                        </button>
+                      )}
                     </li>
                   );
                 })}
@@ -235,7 +350,7 @@ export function CharacterSheet({
         {/* ---------- Right column (first on phones: logging is the daily action) ---------- */}
         <div className="order-first space-y-10 lg:order-none">
           {canEdit && (
-            <Panel title="Quick log" kicker="One tap">
+            <Panel title="Quick log" kicker="Tap · ⋯ for details">
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <span className="mr-1 font-label text-sm font-extrabold tracking-widest text-muted uppercase">Difficulty</span>
                 {Object.entries(gameConfig.difficulty.labels).map(([level, label]) => (
@@ -271,12 +386,19 @@ export function CharacterSheet({
                             <span className={diminished ? "text-volt group-hover:text-paper" : ""}>+{preview.xp} XP</span>
                           </span>
                         </button>
+                        <button
+                          onClick={() => setDialogFor(a)}
+                          aria-label={`Log ${a.name} with amount and note`}
+                          className="absolute top-0 right-0 px-3 py-1 font-display text-lg leading-none text-muted hover:text-paper"
+                        >
+                          ⋯
+                        </button>
                         {floatersFor(a.slug)}
                       </div>
                     );
                   })}
               </div>
-              <p className="mt-3 text-xs text-muted">Yellow XP means you already did it today, so repeats are worth less.</p>
+              <p className="mt-3 text-xs text-muted">Yellow XP means you already did it today, so repeats are worth less. Tap ⋯ to log a custom amount or add a note.</p>
             </Panel>
           )}
 
@@ -285,7 +407,18 @@ export function CharacterSheet({
               <p className="py-2 text-muted">No dailies yet.{canEdit && " Add one below."}</p>
             ) : (
               <ul className="space-y-2">
-                {data.dailies.map((d) => (
+                {data.dailies.map((d) =>
+                  editing === d.id ? (
+                    <li key={d.id}>
+                      <QuestEditor
+                        quest={d}
+                        onSave={(edit) => saveQuest(d, edit)}
+                        onAddObjective={async () => false}
+                        onRemoveObjective={() => {}}
+                        onClose={() => setEditing(null)}
+                      />
+                    </li>
+                  ) : (
                   <li key={d.id} className="group/daily relative flex items-center gap-2">
                     <button
                       onClick={() => completeDaily(d)}
@@ -298,6 +431,7 @@ export function CharacterSheet({
                       <span className={`flex-1 ${d.doneToday ? "text-muted line-through" : ""}`}>{d.title}</span>
                       <span className="font-label text-sm font-extrabold text-muted">+{d.xpReward} XP</span>
                     </button>
+                    {editButton(d)}
                     {canEdit && (
                       <button onClick={() => abandonQuest(d)} aria-label={`Remove ${d.title}`} className="px-1 text-muted opacity-60 hover:text-crimson hover:opacity-100">
                         ×
@@ -305,7 +439,8 @@ export function CharacterSheet({
                     )}
                     {floatersFor(d.id, "text-lg")}
                   </li>
-                ))}
+                  ),
+                )}
               </ul>
             )}
           </Panel>
@@ -332,12 +467,23 @@ export function CharacterSheet({
                         <span className="ml-auto font-label text-sm font-extrabold text-muted">
                           +{q.xpReward} XP{canEdit && <> · <span className="text-volt">◆{q.goldReward}</span></>}
                         </span>
+                        {editButton(q)}
                         {canEdit && !q.completed && (
                           <button onClick={() => abandonQuest(q)} aria-label={`Abandon ${q.title}`} className="px-1 text-muted opacity-60 hover:text-crimson hover:opacity-100">
                             ×
                           </button>
                         )}
                       </div>
+                      {editing === q.id ? (
+                        <QuestEditor
+                          quest={q}
+                          onSave={(edit) => saveQuest(q, edit)}
+                          onAddObjective={(title) => addObjective(q, title)}
+                          onRemoveObjective={(objectiveId) => removeObjective(q, objectiveId)}
+                          onClose={() => setEditing(null)}
+                        />
+                      ) : (
+                      <>
                       {q.isBoss ? (
                         <div className="mb-2 flex items-center gap-3">
                           <span className="font-label text-sm font-extrabold tracking-widest text-volt uppercase">HP</span>
@@ -365,6 +511,8 @@ export function CharacterSheet({
                           </li>
                         ))}
                       </ul>
+                      </>
+                      )}
                       {floatersFor(q.id, "text-2xl")}
                     </article>
                   );

@@ -2,7 +2,7 @@ import "server-only";
 import type { SheetData } from "@/lib/game/types";
 import { dayInTimeZone, emptyTotals } from "@/lib/game/xp";
 import { createClient } from "@/lib/supabase/server";
-import { type LogEntryRow, type ProfileRow, type QuestRow, toLogEntry, toQuest } from "@/lib/supabase/rows";
+import { type LogEntryRow, type ProfileRow, QUEST_COLUMNS, type QuestRow, toLogEntry, toQuest } from "@/lib/supabase/rows";
 
 export type SheetResult =
   | { kind: "private"; signedIn: boolean }
@@ -16,7 +16,7 @@ export async function loadSheet(): Promise<SheetResult> {
   } = await supabase.auth.getUser();
 
   const [profileRes, ownerRes] = await Promise.all([
-    supabase.from("profile").select("display_name, title, timezone, is_public").maybeSingle<ProfileRow>(),
+    supabase.from("profile").select("display_name, title, bio, timezone, is_public").maybeSingle<ProfileRow>(),
     user ? supabase.rpc("is_owner") : Promise.resolve({ data: false, error: null }),
   ]);
   if (profileRes.error) throw new Error(`Could not load profile: ${profileRes.error.message}`);
@@ -35,7 +35,7 @@ export async function loadSheet(): Promise<SheetResult> {
     supabase.from("log_entries").select("activity_slug").eq("occurred_on", today).not("activity_slug", "is", null),
     supabase
       .from("quests")
-      .select("id, kind, title, domain, xp_reward, gold_reward, is_boss, quest_objectives(id, title, done_at, position)")
+      .select(QUEST_COLUMNS)
       .eq("status", "active")
       .order("position")
       .order("created_at"),
@@ -62,6 +62,7 @@ export async function loadSheet(): Promise<SheetResult> {
     sheet: {
       displayName: profile.display_name,
       title: profile.title,
+      bio: profile.bio,
       timezone: profile.timezone,
       today,
       totals,

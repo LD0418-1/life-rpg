@@ -48,6 +48,11 @@ body {
   background-image: radial-gradient(color-mix(in srgb, var(--paper) 7%, transparent) 1px, transparent 1.4px);
   background-size: 7px 7px;
   min-height: 100dvh;
+  /* Room for the notch / home bar when installed as an app on a phone. */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 ::selection {

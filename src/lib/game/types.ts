@@ -57,6 +57,7 @@ export interface NewQuestInput {
 export interface SheetData {
   displayName: string;
   title: string | null;
+  bio: string | null;
   timezone: string;
   /** Today's date (YYYY-MM-DD) in the profile's time zone. */
   today: string;
@@ -69,11 +70,28 @@ export interface SheetData {
   dailies: Quest[];
 }
 
+export interface LogOptions {
+  difficulty: number;
+  /** Defaults to the activity's defaultUnits. */
+  units?: number;
+  note?: string;
+}
+
+export interface QuestEdit {
+  title: string;
+  xpReward: number;
+}
+
 /** What the sheet calls when you do something. Preview = in memory, live = Supabase. */
 export interface SheetBackend {
-  logActivity(slug: string, difficulty: number): Promise<LogEntry>;
+  logActivity(slug: string, options: LogOptions): Promise<LogEntry>;
+  /** Deletes a logged activity (quest rewards can't be deleted). */
+  deleteEntry(entryId: string): Promise<void>;
   completeDaily(questId: string): Promise<LogEntry | null>;
   setObjective(questId: string, objectiveId: string, done: boolean): Promise<LogEntry | null>;
   createQuest(input: NewQuestInput): Promise<Quest>;
+  updateQuest(questId: string, edit: QuestEdit): Promise<Quest>;
+  addObjective(questId: string, title: string): Promise<Quest>;
+  removeObjective(questId: string, objectiveId: string): Promise<Quest>;
   abandonQuest(questId: string): Promise<void>;
 }

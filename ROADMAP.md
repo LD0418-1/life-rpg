@@ -20,10 +20,11 @@
 - [x] Create and abandon quests and dailies
 - [x] Read-only visitor view when profile is public; "coming soon" otherwise
 - [x] Verify end-to-end against the live Supabase project
-- [ ] Edit quests (rename, add objectives)
-- [ ] Custom units / note when logging (long-press a quick-log button)
-- [ ] Settings page (name, title, public on/off)
-- [ ] Installable PWA (home-screen icon, offline shell)
+- [x] Edit quests and dailies (title, XP, add/remove objectives)
+- [x] Custom amount, difficulty and note when logging (⋯ on each quick-log button)
+- [x] Undo after logging, and delete entries from the log
+- [x] Settings page (name, title, bio, public on/off)
+- [x] Installable PWA (home-screen icon, full screen, offline screen)
 - [ ] Deploy, then **use it daily for 2 weeks** and adjust
 
 ## Phase 3: Anti-quit mechanics

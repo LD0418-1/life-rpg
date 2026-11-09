@@ -7,6 +7,7 @@ My life, played as a game. It's a motivation engine that keeps me on track, and 
 ### Pages
 - `/` is your character sheet. You get the full controls when logged in as the owner, visitors get a read-only view if your profile is public, and everyone else sees "coming soon".
 - `/login` is the owner login.
+- `/settings` (owner only) is where you set your name, title, bio, and whether your profile is public.
 - `/preview` is always the sample-data preview, which is safe to click around in.
 
 ## Run it
@@ -39,11 +40,17 @@ src/
       CharacterSheet.tsx      the main screen; works in preview, owner and visitor modes
       LiveSheet.tsx           connects CharacterSheet to the database
       PreviewSheet.tsx        connects CharacterSheet to in-memory sample data
+      LogDialog.tsx           log with a custom amount, difficulty and note
+      QuestEditor.tsx         edit a quest's title, XP and objectives
       NewQuestForm.tsx, StatRadar.tsx, LevelUpOverlay.tsx
   app/
     actions.ts                server actions: the ONLY code that writes to the database
     globals.css               design tokens (colors, fonts) + slashed shapes + animations
-    page.tsx, login/, preview/
+    page.tsx, login/, preview/, settings/
+    manifest.ts               makes the site installable as a phone app
+public/
+  sw.js, offline.html         offline screen + caching of app files
+  icons/                      app icons (home screen, favicon)
 supabase/migrations/
   0001_init.sql               database tables + security rules
   0002_totals_and_rewards.sql fast XP totals + all-or-nothing daily/quest rewards
@@ -78,6 +85,13 @@ The style is an original high-contrast JRPG menu look: ink black, paper white an
 6. Copy `.env.example` to `.env.local`. Fill in the Project URL and the **publishable** key from **Project Settings → API Keys**. Never use the secret / service_role key.
 7. Optional: make your profile visible to visitors:
    `update profile set is_public = true, display_name = 'Your Name', title = 'Your title';`
+
+## Install on your phone
+
+- **iPhone:** open the site in **Safari**, tap **Share → Add to Home Screen**.
+- **Android:** open it in **Chrome**, tap **⋮ → Install app** (or "Add to Home screen").
+
+It opens full screen with its own icon. Pages always load fresh from the network. If you're offline, you get an offline screen instead of an error. App files are cached by `public/sw.js`; bump `VERSION` there if you ever change how it caches.
 
 ## Deploying on Vercel
 

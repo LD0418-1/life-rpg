@@ -35,9 +35,13 @@ export interface QuestRow {
 export interface ProfileRow {
   display_name: string;
   title: string | null;
+  bio: string | null;
   timezone: string;
   is_public: boolean;
 }
+
+export const QUEST_COLUMNS =
+  "id, kind, title, domain, xp_reward, gold_reward, is_boss, quest_objectives(id, title, done_at, position)";
 
 export function toLogEntry(r: LogEntryRow): LogEntry {
   return {
