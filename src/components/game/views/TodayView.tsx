@@ -1,6 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { quickLogActivities } from "@/lib/game/activities";
+import { weekLabel, lastFinishedWeek } from "@/lib/game/recap";
+import { ActivityManager } from "../ActivityManager";
 import { Panel } from "@/components/ui/Panel";
 import { XpBar } from "@/components/ui/XpBar";
 import { gameConfig } from "@/lib/game/config";
@@ -60,6 +64,13 @@ function Hero() {
 
 function QuickLog() {
   const { data, difficulty, setDifficulty, momentumMultiplier, logActivity, openLogDialog, isBusy, floatersFor } = useGame();
+  const [managing, setManaging] = useState(false);
+  if (managing)
+    return (
+      <Panel title="Quick log" kicker="Edit buttons">
+        <ActivityManager onDone={() => setManaging(false)} />
+      </Panel>
+    );
   return (
     <Panel title="Quick log" kicker="Tap · ⋯ for details">
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -76,11 +87,16 @@ function QuickLog() {
             {label}
           </button>
         ))}
+        <button
+          onClick={() => setManaging(true)}
+          className="ml-auto font-label text-sm font-extrabold tracking-widest text-muted uppercase hover:text-volt"
+          aria-label="Edit quick-log buttons"
+        >
+          ✎ Edit
+        </button>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {gameConfig.activities
-          .filter((a) => a.quick)
-          .map((a) => {
+        {quickLogActivities(data.activities).map((a) => {
             const preview = scoreEntry(a, { units: a.defaultUnits, difficulty, repeatIndex: data.todayCounts[a.slug] ?? 0, momentumMultiplier });
             const diminished = preview.breakdown.repeatMultiplier < 1;
             return (
@@ -106,7 +122,7 @@ function QuickLog() {
                 {floatersFor(a.slug)}
               </div>
             );
-          })}
+        })}
       </div>
       <p className="mt-3 text-xs text-muted">Yellow XP means you already did it today, so repeats are worth less. Tap ⋯ to log a custom amount or add a note.</p>
     </Panel>
@@ -187,7 +203,7 @@ function RecentLog() {
       ) : (
         <ul className="divide-y divide-ink-3">
           {data.recent.map((e) => {
-            const a = activityOf(e.activitySlug);
+            const a = activityOf(e.activitySlug, data.activities);
             const tag = e.source === "skill" ? "SKL" : e.questId || e.source === "quest" ? "QST" : domainGlyph(e.domain);
             return (
               <li key={e.id} className="flex items-center gap-3 py-2">
@@ -237,6 +253,16 @@ export function TodayView() {
               <span className="font-display text-2xl">{data.pendingImports}</span>
               <span className="flex-1">import{data.pendingImports === 1 ? "" : "s"} waiting in your inbox</span>
               <span>Review →</span>
+            </Link>
+          )}
+          {canEdit && data.recapDue && (
+            <Link
+              href={`${basePath}/journal`}
+              className="skew-box flex items-center gap-3 bg-paper px-6 py-2 font-label font-extrabold tracking-wider text-ink uppercase hover:bg-volt"
+            >
+              <span className="font-display text-2xl">✦</span>
+              <span className="flex-1">Your weekly recap for {weekLabel(lastFinishedWeek(data.today))} is ready to write</span>
+              <span>Journal →</span>
             </Link>
           )}
           {canEdit && <QuickLog />}

@@ -12,6 +12,8 @@ import type { Skill } from "./game/skills";
 import { buildStats } from "./game/stats";
 import { addDays } from "./game/streaks";
 import { addToTotals, emptyTotals, repeatIndexFor, scoreEntry } from "./game/xp";
+import { type ActivityOverride, mergeActivities } from "./game/activities";
+import type { DiaryEntry } from "./game/diary";
 
 // Small seeded random generator, so the sample looks the same on every load.
 function seeded(seed: number) {
@@ -192,8 +194,32 @@ export function buildSampleWorld(now: Date): SampleWorld {
       extrasReady: true,
       pendingImports: 5,
       visibility: { sections: { quests: true, journal: true, streak: true, world: true, skills: true, trophies: true, seasons: true }, hiddenDomains: [] },
+      activities: mergeActivities(sampleActivityOverrides),
+      phase8Ready: true,
+      recapDue: true,
     },
   };
+}
+
+/** One activity of your own in the preview, to show off the quick-log editor. */
+export const sampleActivityOverrides: ActivityOverride[] = [
+  { slug: "guitar", name: "Play guitar", domain: "craft", unit: "minute", baseXp: 5, xpPerUnit: 0.8, maxUnits: 120, defaultUnits: 20, quick: true, hidden: false, position: 6 },
+];
+
+/** A few diary entries for the preview. */
+export function buildSampleDiary(today: string): DiaryEntry[] {
+  const at = (day: string, time: string) => `${day}T${time}:00Z`;
+  const notes: [number, string | null, string, number | null, boolean][] = [
+    [0, null, "Short one today. Got the run in before work, and the legs finally feel like they're adapting.", 4, false],
+    [1, "Taxes: round one", "Spent an hour sorting receipts. Not done, but the pile is now two piles, which counts as progress.\n\nNote to self: the shoebox system is not a system.", 3, false],
+    [3, "Rest day", "Took the planned rest day. Read in the park, called Mum. No guilt.", 5, true],
+    [6, "Rough week start", "Slept badly, skipped the workout. Logged a short walk so the streak shield didn't have to save me.", 2, false],
+    [12, "Long run PB", "12 km without stopping! Two months ago 5 km felt hard.", 5, true],
+  ];
+  return notes.map(([ago, title, body, mood, isPublic], i) => {
+    const day = addDays(today, -ago);
+    return { id: `diary-${i + 1}`, day, title, body, mood, isPublic, createdAt: at(day, "21:00"), updatedAt: at(day, "21:00") };
+  });
 }
 
 /** About a month and a half of made-up spending for the Wallet preview. */

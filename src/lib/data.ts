@@ -26,11 +26,23 @@ import { createClient } from "@/lib/supabase/server";
 import { createAnonClient } from "@/lib/supabase/anon";
 import { parseVisibility } from "@/lib/game/visibility";
 import { isMissingRelation, loadStreakData } from "@/lib/supabase/streak-data";
+import { loadActivities } from "@/lib/supabase/phase8-data";
+import { lastFinishedWeek } from "@/lib/game/recap";
+import { addDays } from "@/lib/game/streaks";
 
 /** How many imports are waiting in the inbox (0 if imports aren't set up yet). */
 async function countPendingImports(supabase: Supabase): Promise<number> {
   const { count, error } = await supabase.from("import_items").select("id", { count: "exact", head: true }).eq("status", "pending");
   return error ? 0 : (count ?? 0);
+}
+
+/** Owner only: true when last week had XP but no recap was written yet. */
+async function isRecapDue(supabase: Supabase, today: string, days: { day: string; xp: number }[]): Promise<boolean> {
+  const monday = lastFinishedWeek(today);
+  const sunday = addDays(monday, 6);
+  if (!days.some((d) => d.day >= monday && d.day <= sunday && d.xp > 0)) return false;
+  const { count, error } = await supabase.from("weekly_recaps").select("week_start", { count: "exact", head: true }).eq("week_start", monday);
+  return !error && count === 0;
 }
 
 /** Custom quest rewards (owner only). `ready` is false until 0005 has been run. */
@@ -78,7 +90,7 @@ export async function loadSheet(options: { asVisitor?: boolean } = {}): Promise<
   if (!profile || (!isOwner && !profile.is_public)) return { kind: "private", signedIn: Boolean(user) };
 
   const today = dayInTimeZone(new Date(), profile.timezone);
-  const [streakData, totals, recentRes, todayRes, questsRes, doneRes, skills, unlocked, shop, goldSpent, seasonsRes, closedGoalsRes, completedRes, rewardData, pendingImports] =
+  const [streakData, totals, recentRes, todayRes, questsRes, doneRes, skills, unlocked, shop, goldSpent, seasonsRes, closedGoalsRes, completedRes, rewardData, pendingImports, activityData] =
     await Promise.all([
     loadStreakData(supabase),
     loadTotals(supabase),
@@ -95,13 +107,15 @@ export async function loadSheet(options: { asVisitor?: boolean } = {}): Promise<
     supabase.from("quests").select("completed_at").eq("status", "completed").neq("kind", "daily"),
     isOwner ? loadRewards(supabase) : Promise.resolve({ ready: true, rewards: {} }),
     isOwner ? countPendingImports(supabase) : Promise.resolve(0),
+    loadActivities(supabase),
   ]);
   for (const res of [recentRes, todayRes, questsRes, doneRes, seasonsRes, closedGoalsRes, completedRes]) {
     if (res.error) throw new Error(`Could not load your data: ${res.error.message}`);
   }
 
   // Achievements: the owner's page load also records anything newly earned.
-  const stats = await loadAchievementStats(supabase, { today, totals, streak: streakData, skills });
+  const stats = await loadAchievementStats(supabase, { today, totals, streak: streakData, skills, activities: activityData.activities });
+  const recapDue = isOwner && activityData.ready ? await isRecapDue(supabase, today, streakData.days) : false;
   const achievements = isOwner ? await recordAchievements(supabase, stats, unlocked) : { unlocked };
 
   const todayCounts: Record<string, number> = {};
@@ -145,6 +159,9 @@ export async function loadSheet(options: { asVisitor?: boolean } = {}): Promise<
       extrasReady: rewardData.ready,
       pendingImports,
       visibility: parseVisibility(profile.visibility),
+      activities: activityData.activities,
+      phase8Ready: activityData.ready,
+      recapDue,
     },
   };
 }

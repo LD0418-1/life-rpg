@@ -4,7 +4,8 @@
 // computed here on the server from xp.json, never trusted from the browser.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getActivity } from "@/lib/game/config";
+import { findActivity } from "@/lib/game/activities";
+import { loadActivities } from "@/lib/supabase/phase8-data";
 import {
   checkAddObjective,
   checkRemoveObjective,
@@ -79,12 +80,13 @@ async function loadActiveQuest(supabase: Supabase, questId: string): Promise<Que
 
 export async function logActivityAction(slug: string, options: LogOptions): Promise<ActionResult<LogEntry>> {
   return run(async () => {
-    const activity = getActivity(slug);
     const { difficulty } = options;
     if (!Number.isInteger(difficulty) || difficulty < 1 || difficulty > 5) throw new Error("Difficulty must be 1-5.");
+    const { supabase, today } = await ownerContext();
+    // Your own activities and edits (0008) count, not just xp.json.
+    const activity = findActivity(slug, (await loadActivities(supabase)).activities);
     const units = cleanUnits(activity, options.units);
     const note = cleanNote(options.note);
-    const { supabase, today } = await ownerContext();
 
     const [{ count, error: countError }, streak] = await Promise.all([
       supabase.from("log_entries").select("id", { count: "exact", head: true }).eq("activity_slug", slug).eq("occurred_on", today),
@@ -469,13 +471,14 @@ export async function setQuestSeasonAction(questId: string, seasonId: string | n
 export async function syncAchievementsAction(): Promise<ActionResult<AchievementSync>> {
   return run(async () => {
     const { supabase, today } = await ownerContext();
-    const [totals, streak, skills, unlocked] = await Promise.all([
+    const [totals, streak, skills, unlocked, { activities }] = await Promise.all([
       loadTotals(supabase),
       loadStreakData(supabase),
       loadSkills(supabase),
       loadUnlockedAchievements(supabase),
+      loadActivities(supabase),
     ]);
-    const stats = await loadAchievementStats(supabase, { today, totals, streak, skills });
+    const stats = await loadAchievementStats(supabase, { today, totals, streak, skills, activities });
     const recorded = await recordAchievements(supabase, stats, unlocked);
     return { stats, unlocked: recorded.unlocked, newly: recorded.newly };
   });

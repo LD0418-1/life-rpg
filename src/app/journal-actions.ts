@@ -9,6 +9,7 @@ import { type ActionResult, run } from "@/lib/server/action-helpers";
 import { createAnonClient } from "@/lib/supabase/anon";
 import { ENTRY_COLUMNS, type LogEntryRow, toLogEntry } from "@/lib/supabase/rows";
 import { createClient } from "@/lib/supabase/server";
+import { DIARY_COLUMNS, type DiaryRow, toDiaryEntry } from "@/lib/supabase/phase8-data";
 
 const MAX_DAYS = 400;
 
@@ -25,10 +26,12 @@ export async function loadJournalAction(fromDay: string, toDay: string, asVisito
     // Unlock times are instants; a day of margin covers every time zone, then they're sorted into local days.
     const lo = new Date(Date.parse(`${fromDay}T00:00:00Z`) - 86_400_000).toISOString();
     const hi = new Date(Date.parse(`${toDay}T00:00:00Z`) + 2 * 86_400_000).toISOString();
-    const [entries, trophies, skills] = await Promise.all([
+    const [entries, trophies, skills, notes] = await Promise.all([
       supabase.from("log_entries").select(ENTRY_COLUMNS).gte("occurred_on", fromDay).lte("occurred_on", toDay).order("occurred_at", { ascending: false }).limit(1500),
       supabase.from("achievement_unlocks").select("slug, unlocked_at").gte("unlocked_at", lo).lt("unlocked_at", hi),
       supabase.from("skills").select("name, tree, unlocked_at").not("unlocked_at", "is", null).gte("unlocked_at", lo).lt("unlocked_at", hi),
+      // Diary notes (visitors only get public ones). Missing before 0008: then there are none.
+      supabase.from("diary_entries").select(DIARY_COLUMNS).gte("day", fromDay).lte("day", toDay).order("day", { ascending: false }).order("created_at", { ascending: false }).limit(500),
     ]);
     if (entries.error) throw new Error(entries.error.message);
     const inRange = (day: string) => day >= fromDay && day <= toDay;
@@ -41,6 +44,7 @@ export async function loadJournalAction(fromDay: string, toDay: string, asVisito
       skills: (skills.data ?? [])
         .map((s) => ({ name: s.name as string, tree: s.tree as string, day: dayInTimeZone(new Date(s.unlocked_at as string), tz) }))
         .filter((s) => inRange(s.day)),
+      notes: notes.error ? [] : ((notes.data ?? []) as DiaryRow[]).map(toDiaryEntry),
     };
   });
 }

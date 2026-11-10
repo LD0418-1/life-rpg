@@ -1,6 +1,7 @@
 "use server";
 
 // Imports inbox: connect sources, sync, approve / ignore.
+import { loadActivities } from "@/lib/supabase/phase8-data";
 import { addDays } from "@/lib/game/streaks";
 import type { ImportsData, LogEntry } from "@/lib/game/types";
 import { type ImportItem, type ImportSource, newImportToken } from "@/lib/imports/core";
@@ -123,8 +124,8 @@ export async function approveImportAction(itemId: string): Promise<ActionResult<
   return run(async () => {
     const { supabase } = await ownerContext();
     const item = await loadItem(supabase, itemId);
-    const streak = await loadStreakData(supabase);
-    return approveItem(supabase, item, { days: streak.days, restDays: streak.restDays });
+    const [streak, { activities }] = await Promise.all([loadStreakData(supabase), loadActivities(supabase)]);
+    return approveItem(supabase, item, { days: streak.days, restDays: streak.restDays, activities });
   });
 }
 

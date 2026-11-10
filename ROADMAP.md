@@ -77,7 +77,14 @@
 - [x] Run `0007_showcase_privacy.sql` on the live database
 
 ## Phase 8: Weekly AI recap
-- [ ] End-of-week recap saved to the journal
+- [x] Weekly recap written by Claude (`claude-opus-5-5`) from the week's numbers and, optionally, your diary notes
+- [x] Built-in template recap when no Anthropic key is set (also used by the preview)
+- [x] Written automatically when you open the Journal after a week ends; "ready to write" banner on Today; rewrite any past week
+- [x] Saved to the Journal, private by default; make it public and share it (text + link)
+- [x] Editable quick log: add your own activities, edit XP rules, hide, reorder, reset to default
+- [x] Diary: notes with mood and title, month view, search, private or public; public notes show in the Journal
+- [ ] Run `0008_activities_diary_recaps.sql` on the live database
+- [ ] Add `ANTHROPIC_API_KEY` in Vercel
 
 ## Phase 9: Polish
 - [ ] Sounds, animations, empty states, light theme

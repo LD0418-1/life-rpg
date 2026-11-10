@@ -7,6 +7,7 @@
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ACHIEVEMENTS } from "@/lib/game/achievements";
 import { type Activity, gameConfig } from "@/lib/game/config";
+import type { GameActivity } from "@/lib/game/activities";
 import { activityOf, addDayXp, domainLabel } from "@/lib/game/format";
 import type { LootItem, NewLootInput, Purchase } from "@/lib/game/loot";
 import type { NewSeasonInput, Season, SeasonEdit } from "@/lib/game/seasons";
@@ -86,6 +87,14 @@ export interface Game {
   setEntryPublic: (e: LogEntry, isPublic: boolean) => Promise<boolean>;
   /** Link to a share card image. The preview uses sample values (?demo=1). */
   cardHref: (card: CardRequest) => string;
+  /** Runs any backend call with the shared busy flag and error bar. Undefined when it failed. */
+  perform: <T>(key: string, fn: () => Promise<T>) => Promise<T | undefined>;
+  /** After editing the quick log. */
+  setActivities: (list: GameActivity[]) => void;
+  /** After last week's recap was written. */
+  clearRecapDue: () => void;
+  /** Shows a short celebration banner. */
+  celebrate: (b: { kicker?: string; title: string; sub: string }) => void;
 }
 
 export type CardRequest =
@@ -492,6 +501,10 @@ export function GameProvider({
         setData((d) => ({ ...d, recent: d.recent.map((x) => (x.id === e.id ? { ...x, isPublic } : x)) }));
         return true as const;
       })) === true,
+    perform: act,
+    setActivities: (list) => setData((d) => ({ ...d, activities: list })),
+    clearRecapDue: () => setData((d) => ({ ...d, recapDue: false })),
+    celebrate: pushBanner,
     adjustPendingImports: (delta) => setData((d) => ({ ...d, pendingImports: Math.max(0, d.pendingImports + delta) })),
     setQuestSeason: (q, seasonId) =>
       void act(`pin:${q.id}`, async () => {
@@ -568,7 +581,7 @@ export function GameProvider({
           {undo && (
             <div className="skew-box flex items-center gap-3 bg-ink-3 px-6 py-3 shadow-[5px_5px_0_var(--crimson)]">
               <span className="flex-1 text-sm">
-                Logged <strong>{activityOf(undo.entry.activitySlug)?.name}</strong> · +{undo.entry.xp} XP
+                Logged <strong>{activityOf(undo.entry.activitySlug, data.activities)?.name}</strong> · +{undo.entry.xp} XP
               </span>
               <button onClick={() => void removeEntry(undo.entry)} className="font-label font-extrabold tracking-widest text-volt uppercase hover:text-paper">
                 Undo

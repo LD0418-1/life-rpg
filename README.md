@@ -2,7 +2,7 @@
 
 My life, played as a game. It's a motivation engine that keeps me on track, and a public showcase of what I've done.
 
-**Status:** Phase 2 in progress. Login, saving, quests and dailies work against Supabase. Without Supabase settings, the home page falls back to an interactive **preview with sample data**, which is also always available at `/preview`. See [ROADMAP.md](ROADMAP.md).
+**Status:** Phases 0–8 done (see the roadmap). Everything is saved in Supabase. Without Supabase settings, the home page falls back to an interactive **preview with sample data**, which is also always available at `/preview`. See [ROADMAP.md](ROADMAP.md).
 
 ### Pages
 A sidebar on big screens and a tab bar on phones link these sections:
@@ -11,7 +11,8 @@ A sidebar on big screens and a tab bar on phones link these sections:
 - `/world`: the world map. One region per domain, with buildings that grow in 6 stages as the domain levels up.
 - `/skills`: stats radar, level unlocks (color themes) and skill trees.
 - `/trophies`: achievements. Hidden ones show as "???" until earned.
-- `/journal`: a timeline by month or season, with level-ups, trophies, skills and season milestones. Lock any entry to keep it private.
+- `/journal`: the **weekly recap** on top, then a timeline by month or season with level-ups, trophies, skills, season milestones and diary notes. Lock any entry to keep it private.
+- `/diary` (owner only): free-form notes with a mood and title, by month, with search. Private unless you make an entry public.
 - `/showcase`: your public page exactly as a logged-out visitor sees it. Also linked as "View as visitor".
 - `/inbox` (owner only): imports from GitHub, Strava and Apple Health waiting for your approval, plus connection settings.
 - `/calendar` (owner only): your Google / Apple calendars (via their private iCal links), plus Life RPG days: XP, rest days, quests cleared, seasons.
@@ -35,12 +36,16 @@ npm run lint
 ```
 src/
   config/xp.json              ← ALL scoring rules. Tweak numbers here to rebalance.
+                                (Activities can also be edited in the app: Today → Quick log → ✎ Edit.)
   lib/game/
     config.ts                 loads + checks xp.json (typos give a clear error)
     xp.ts                     the game math: levels, XP per entry, diminishing returns
     xp.test.ts                tests for the math (run `npm test`)
     types.ts                  shapes of log entries, quests, etc.
     quests.ts                 rules for creating quests (shared by preview + server)
+    activities.ts             xp.json activities merged with your edits from the app
+    diary.ts                  diary entry rules and search
+    recap.ts                  weekly recap: the week's numbers, the template recap, the prompt for Claude
   lib/supabase/               database connection, row ↔ app-object mapping
   lib/data.ts                 loads the character sheet from the database (server only)
   lib/sample-data.ts          fake history for the preview
@@ -70,6 +75,7 @@ supabase/migrations/
   0005_rewards_wallet_calendar.sql  custom quest rewards, wallet, calendar links (all owner-only)
   0006_imports.sql            import inbox + connections, approve_import, ingest_health (Apple Health)
   0007_showcase_privacy.sql   what visitors see: section switches, hidden domains (enforced in the database)
+  0008_activities_diary_recaps.sql  your own quick-log activities, diary, weekly recaps
 ```
 
 ### The scoring rules (`src/config/xp.json`)
@@ -92,6 +98,8 @@ supabase/migrations/
 - **quick tasks**: a main or side quest with no objectives becomes a one-step task named after itself.
 - **calendar links** are fetched only on the server (`src/app/calendar-actions.ts`, parsed by `src/lib/calendar/ics.ts`), never sent to the browser, and only https / webcal links to public hosts are allowed.
 - **seasons** (`src/lib/game/seasons.ts`): named chapters with dates and pinned quests as goals. The rank is based on the share of active days: S ≥ 90%, A ≥ 75%, B ≥ 50%, C ≥ 25%, otherwise D.
+- **editable quick log** (`src/lib/game/activities.ts`): Today → Quick log → ✎ Edit. Add your own activities, change name, domain, unit and XP rules, hide or reorder buttons. Built-in ones (from xp.json) can be reset; your own can be deleted, or are hidden instead if they have log entries. Changes only affect new entries.
+- **weekly recap** (`src/lib/game/recap.ts`, `src/lib/server/recap-ai.ts`): for each Monday–Sunday week, the XP, active days, domains and level-ups, top activities, quests and bosses, trophies, streak and season progress. Claude turns that into a short recap; without an API key a template writes it instead.
 - Streaks are *replayed* from your log every time (`src/lib/game/streaks.ts`), so nothing can drift out of sync, and changing these numbers re-tells your history with the new rules.
 
 ### The database (`supabase/migrations/0001_init.sql`)
@@ -106,7 +114,7 @@ The style is an original high-contrast JRPG menu look: ink black, paper white an
 ## Setting up Supabase
 
 1. Create a project at supabase.com.
-2. In **SQL Editor**, run each file in `supabase/migrations/` in order: `0001_init.sql`, `0002_totals_and_rewards.sql`, `0003_streaks.sql`, `0004_depth.sql`, `0005_rewards_wallet_calendar.sql`, `0006_imports.sql`, `0007_showcase_privacy.sql`.
+2. In **SQL Editor**, run each file in `supabase/migrations/` in order: `0001_init.sql`, `0002_totals_and_rewards.sql`, `0003_streaks.sql`, `0004_depth.sql`, `0005_rewards_wallet_calendar.sql`, `0006_imports.sql`, `0007_showcase_privacy.sql`, `0008_activities_diary_recaps.sql`.
 3. In **Authentication → Users → Add user**, create your user and tick **Auto Confirm User**.
 4. In **Authentication → Sign In / Providers**, turn off **Allow new users to sign up**.
 5. Make yourself the owner by running this in the SQL Editor:
@@ -135,6 +143,22 @@ Everything lands in the **Inbox** as pending. Nothing counts until you approve i
 - **Strava:** create an app at strava.com/settings/api, set its Authorization Callback Domain to your site's domain, add `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET` in Vercel, redeploy, then click **Connect Strava** in the Inbox.
 - **Apple Health:** Inbox → Apple Health → Set up shows a token (once) and step-by-step Shortcut instructions. The Shortcut POSTs `{ date, steps, workout_minutes, run_minutes, mindful_minutes }` to `/api/import/health` with `Authorization: Bearer <token>`. Only a sha-256 fingerprint of the token is stored.
 - Connected sources sync automatically when you open the Inbox, if the last sync was over 30 minutes ago, or whenever you press **Sync now**.
+
+## Weekly recaps written by Claude
+
+Recaps work without any setup: a built-in template writes them from your numbers. For recaps written by Claude:
+
+1. Go to **console.anthropic.com**, sign in, and add a little credit under **Billing** (a recap costs about 3 US cents).
+2. Under **API Keys**, click **Create Key**, name it `life-rpg` and copy it. It's shown only once.
+3. In Vercel: your project → **Settings → Environment Variables** → add `ANTHROPIC_API_KEY` with the key as its value (all environments) → **Save**.
+4. **Deployments** → ⋯ on the latest one → **Redeploy**, so the site picks up the key.
+
+The key stays on the server: it's never sent to the browser, and it isn't in the code. Don't paste it anywhere else. If it ever leaks, delete it in the Anthropic Console and create a new one.
+
+- **What's sent to Claude:** the week's numbers (XP, activities, quests, streak, season) and, if "Use my diary notes" is ticked, that week's diary entries. Nothing else.
+- **When:** the first time you open the Journal after a week ends (the Today page shows a banner). You can also write or rewrite any past week from the Journal.
+- **Privacy:** recaps are private until you click **Make public**. Read one before you make it public: it can mention hidden domains and your diary.
+- The model is `claude-opus-5-5` at low effort (`src/lib/server/recap-ai.ts`). If a safety check ever declines a request, the API retries it on another suitable model automatically (server-side fallback).
 
 ## Deploying on Vercel
 

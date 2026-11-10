@@ -8,7 +8,8 @@ import { scoreEntry } from "@/lib/game/xp";
 import { type GithubCommit, type ImportDraft, type ImportItem, type StravaActivity, groupGithubCommits, mapImport, stravaToDraft } from "@/lib/imports/core";
 import { type LogEntryRow, toLogEntry } from "@/lib/supabase/rows";
 import type { createClient } from "@/lib/supabase/server";
-import { gameConfig } from "@/lib/game/config";
+import { type Activity, gameConfig } from "@/lib/game/config";
+import { withActivities } from "@/lib/game/activities";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -148,9 +149,9 @@ export async function syncStrava(supabase: Supabase, refreshToken: string, since
 export async function approveItem(
   supabase: Supabase,
   item: ImportItem,
-  context: { days: { day: string; xp: number }[]; restDays: string[] },
+  context: { days: { day: string; xp: number }[]; restDays: string[]; activities: Activity[] },
 ): Promise<LogEntry> {
-  const { activity, units } = mapImport(item);
+  const { activity, units } = mapImport(item, withActivities(context.activities));
   const { count } = await supabase
     .from("log_entries")
     .select("id", { count: "exact", head: true })

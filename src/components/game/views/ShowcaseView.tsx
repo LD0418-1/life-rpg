@@ -193,7 +193,7 @@ export function ShowcaseView() {
             ) : (
               <ul className="divide-y divide-ink-3">
                 {data.recent.slice(0, 8).map((e) => {
-                  const a = activityOf(e.activitySlug);
+                  const a = activityOf(e.activitySlug, data.activities);
                   return (
                     <li key={e.id} className="flex items-center gap-3 py-2">
                       <span className="w-10 font-label text-xs font-extrabold tracking-wider text-muted">{e.source === "skill" ? "SKL" : e.questId || e.source === "quest" ? "QST" : domainGlyph(e.domain)}</span>

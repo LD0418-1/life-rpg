@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo } from "react";
 import * as actions from "@/app/actions";
+import * as activityActions from "@/app/activity-actions";
+import * as diary from "@/app/diary-actions";
+import * as recaps from "@/app/recap-actions";
 import * as calendar from "@/app/calendar-actions";
 import * as imports from "@/app/import-actions";
 import * as journal from "@/app/journal-actions";
@@ -79,6 +82,18 @@ export function LiveGame({
       createSeason: (input) => unwrap(actions.createSeasonAction(input)),
       updateSeason: (seasonId, edit) => unwrap(actions.updateSeasonAction(seasonId, edit)),
       setQuestSeason: (questId, seasonId) => unwrap(actions.setQuestSeasonAction(questId, seasonId)),
+      saveActivity: (slug, input) => unwrap(activityActions.saveActivityAction(slug, input)),
+      setActivityHidden: (slug, hidden) => unwrap(activityActions.setActivityHiddenAction(slug, hidden)),
+      resetActivity: (slug) => unwrap(activityActions.resetActivityAction(slug)),
+      deleteActivity: (slug) => unwrap(activityActions.deleteActivityAction(slug)),
+      reorderActivities: (order) => unwrap(activityActions.reorderActivitiesAction(order)),
+      loadDiary: (query) => unwrap(diary.loadDiaryAction(query)),
+      saveDiary: (input, entryId) => unwrap(diary.saveDiaryAction(input, entryId)),
+      deleteDiary: (entryId) => unwrap(diary.deleteDiaryAction(entryId)),
+      setDiaryPublic: (entryId, isPublic) => unwrap(diary.setDiaryPublicAction(entryId, isPublic)),
+      loadRecaps: () => unwrap(recaps.loadRecapsAction(asVisitor)),
+      writeRecap: (weekStart, options) => unwrap(recaps.writeRecapAction(weekStart, options)),
+      setRecapPublic: (weekStart, isPublic) => unwrap(recaps.setRecapPublicAction(weekStart, isPublic)),
     }),
     [asVisitor],
   );

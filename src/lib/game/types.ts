@@ -9,6 +9,9 @@ import type { FinanceSettings, MoneyTx, NewTxInput } from "./finance";
 import type { CalEvent } from "../calendar/ics";
 import type { ImportItem, ImportSource } from "../imports/core";
 import type { Visibility } from "./visibility";
+import type { ActivityInput, GameActivity } from "./activities";
+import type { DiaryEntry, DiaryInput } from "./diary";
+import type { WeekStats } from "./recap";
 
 export interface LogEntry {
   id: string;
@@ -117,6 +120,37 @@ export interface SheetData {
   pendingImports: number;
   /** What visitors may see. */
   visibility: Visibility;
+  /** Every activity (xp.json + your changes), in quick-log order. Includes hidden ones. */
+  activities: GameActivity[];
+  /** False until the 0008 database script (activities, diary, recaps) has been run. */
+  phase8Ready: boolean;
+  /** Owner only: last week had XP but has no recap yet. */
+  recapDue: boolean;
+}
+
+export interface WeeklyRecap {
+  /** The Monday the week starts on. */
+  weekStart: string;
+  title: string;
+  body: string;
+  stats: WeekStats;
+  /** "ai" = written by Claude, "basic" = the built-in template. */
+  source: "ai" | "basic";
+  isPublic: boolean;
+  createdAt: string;
+}
+
+export interface RecapsData {
+  ready: boolean;
+  /** True when an Anthropic API key is set (owner only). */
+  aiEnabled: boolean;
+  /** Newest first. */
+  recaps: WeeklyRecap[];
+}
+
+export interface DiaryData {
+  ready: boolean;
+  entries: DiaryEntry[];
 }
 
 /** One stretch of your journey for the Journal page. */
@@ -126,6 +160,8 @@ export interface JournalData {
   trophies: { slug: string; day: string }[];
   /** Skills unlocked in the range, by local day. */
   skills: { name: string; tree: string; day: string }[];
+  /** Diary notes in the range (visitors: only public ones). */
+  notes: DiaryEntry[];
 }
 
 export interface ImportConnections {
@@ -235,4 +271,22 @@ export interface SheetBackend {
   setQuestSeason(questId: string, seasonId: string | null): Promise<void>;
   /** Re-checks achievements after something happened. */
   syncAchievements(): Promise<AchievementSync>;
+  /** Adds (slug null) or edits a quick-log activity. Returns the new full list. */
+  saveActivity(slug: string | null, input: ActivityInput): Promise<GameActivity[]>;
+  setActivityHidden(slug: string, hidden: boolean): Promise<GameActivity[]>;
+  /** Puts a built-in activity back to its xp.json values. */
+  resetActivity(slug: string): Promise<GameActivity[]>;
+  /** Deletes one of your own activities, or hides it if it has history. */
+  deleteActivity(slug: string): Promise<{ activities: GameActivity[]; hiddenInstead: boolean }>;
+  /** Saves the quick-log order (every slug, first to last). */
+  reorderActivities(order: string[]): Promise<GameActivity[]>;
+  /** A month (YYYY-MM) of diary entries, or a search across all of them. */
+  loadDiary(query: { month?: string; search?: string }): Promise<DiaryData>;
+  saveDiary(input: DiaryInput, entryId?: string): Promise<DiaryEntry>;
+  deleteDiary(entryId: string): Promise<void>;
+  setDiaryPublic(entryId: string, isPublic: boolean): Promise<void>;
+  loadRecaps(): Promise<RecapsData>;
+  /** Writes (or rewrites) the recap for the week starting on this Monday. */
+  writeRecap(weekStart: string, options: { useDiary: boolean }): Promise<WeeklyRecap>;
+  setRecapPublic(weekStart: string, isPublic: boolean): Promise<void>;
 }

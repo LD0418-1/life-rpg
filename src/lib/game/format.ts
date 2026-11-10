@@ -1,10 +1,11 @@
-import { gameConfig } from "./config";
+import { type Activity, gameConfig } from "./config";
 import type { SheetData } from "./types";
 
 export const domainLabel = (id: string) => gameConfig.domains.find((d) => d.id === id)?.label ?? id;
 export const domainGlyph = (id: string) => gameConfig.domains.find((d) => d.id === id)?.glyph ?? "???";
 export const unitLabel = (n: number, unit = "") => `${n} ${unit}${n === 1 ? "" : "s"}`;
-export const activityOf = (slug: string | null | undefined) => gameConfig.activities.find((a) => a.slug === slug);
+/** Finds an activity by slug. Pass your list (data.activities) so your own activities are found too. */
+export const activityOf = (slug: string | null | undefined, list: ReadonlyArray<Activity> = gameConfig.activities) => list.find((a) => a.slug === slug);
 
 /** Adds `xp` to `day` in a list of daily totals (drops days that reach 0). */
 export function addDayXp(days: SheetData["days"], day: string, xp: number): SheetData["days"] {

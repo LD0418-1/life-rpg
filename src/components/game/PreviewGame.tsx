@@ -2,7 +2,12 @@
 
 import { type ReactNode, useState } from "react";
 import { newlyEarned } from "@/lib/game/achievements";
-import { gameConfig, getActivity } from "@/lib/game/config";
+import { gameConfig } from "@/lib/game/config";
+import { type ActivityOverride, findActivity, mergeActivities, normalizeActivityInput, overrideFields, slugFor } from "@/lib/game/activities";
+import { type DiaryEntry, normalizeDiaryInput, searchDiary, sortDiary } from "@/lib/game/diary";
+import { basicRecap, buildWeekStats, lastFinishedWeek } from "@/lib/game/recap";
+import { ACHIEVEMENTS } from "@/lib/game/achievements";
+import { addDays, isDay, weekday } from "@/lib/game/streaks";
 import { buyBlocker, normalizeNewLoot, type LootItem, type Purchase } from "@/lib/game/loot";
 import {
   checkAddObjective,
@@ -19,9 +24,9 @@ import { type Season, normalizeNewSeason, normalizeSeasonEdit, seasonState } fro
 import { type Skill, deleteBlocker, normalizeNewSkill, unlockBlocker } from "@/lib/game/skills";
 import { buildStats } from "@/lib/game/stats";
 import { checkPlanRest, checkUnplanRest, computeProgress } from "@/lib/game/streaks";
-import type { LogEntry, Quest, SheetBackend } from "@/lib/game/types";
+import type { LogEntry, Quest, SheetBackend, WeeklyRecap } from "@/lib/game/types";
 import { addToTotals, scoreEntry } from "@/lib/game/xp";
-import { type SampleWorld, buildAllSampleEntries, buildSampleEvents, buildSampleImports, buildSampleTxs, buildSampleWorld, sampleDailies } from "@/lib/sample-data";
+import { type SampleWorld, buildAllSampleEntries, buildSampleDiary, buildSampleEvents, buildSampleImports, buildSampleTxs, buildSampleWorld, sampleActivityOverrides, sampleDailies } from "@/lib/sample-data";
 import { type ImportItem, mapImport, newImportToken } from "@/lib/imports/core";
 import { normalizeFeedUrl } from "@/lib/calendar/ics";
 import { type FinanceSettings, type MoneyTx, monthRange, normalizeFinanceSettings, normalizeTx } from "@/lib/game/finance";
@@ -83,9 +88,41 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
   const reward = (q: Quest): LogEntry =>
     record({ id: id(), source: "quest", activitySlug: null, questId: q.id, domain: q.domain, units: 1, difficulty: 3, xp: q.xpReward, gold: q.goldReward, occurredOn: today, note: q.title });
 
+  // Quick-log activities, diary and weekly recaps.
+  let overrides: ActivityOverride[] = structuredClone(sampleActivityOverrides);
+  const activityList = () => mergeActivities(overrides);
+  const upsertOverride = (slug: string, patch: Partial<ActivityOverride>) => {
+    const blank: ActivityOverride = { slug, name: null, domain: null, unit: null, baseXp: null, xpPerUnit: null, maxUnits: null, defaultUnits: null, quick: null, hidden: false, position: null };
+    const existing = overrides.find((o) => o.slug === slug);
+    overrides = existing ? overrides.map((o) => (o.slug === slug ? { ...o, ...patch } : o)) : [...overrides, { ...blank, ...patch }];
+  };
+  let diary: DiaryEntry[] = buildSampleDiary(today);
+  const recapFor = (weekStart: string): WeeklyRecap => {
+    for (const e of entries.values()) history.set(e.id, e);
+    const all = [...history.values()];
+    const stats = buildWeekStats({
+      weekStart,
+      today,
+      entries: all.filter((e) => e.occurredOn >= addDays(weekStart, -7)),
+      totals,
+      days: days(),
+      restDays,
+      activities: activityList(),
+      quests: Object.fromEntries([...quests.values()].map((q) => [q.id, { kind: q.kind, isBoss: Boolean(q.isBoss) }])),
+      trophies: sampleTrophyDays.map((t) => ({ name: ACHIEVEMENTS.find((a) => a.slug === t.slug)?.name ?? t.slug, day: t.day })),
+      skills: skills.filter((s) => s.unlockedAt).map((s) => ({ name: s.name, day: s.unlockedAt!.slice(0, 10) })),
+      seasons,
+      seasonGoals: [...quests.values()].filter((q) => q.seasonId).map((q) => ({ seasonId: q.seasonId!, title: q.title, doneOn: q.completed ? today : null })),
+      diaryEntries: diary.filter((d) => d.day >= weekStart && d.day <= addDays(weekStart, 6)).length,
+    });
+    return { weekStart, ...basicRecap(stats), stats, source: "basic", isPublic: false, createdAt: new Date().toISOString() };
+  };
+  // The week before last already has a recap; last week's is "due", to show how it's written.
+  let recaps: WeeklyRecap[] = [{ ...recapFor(addDays(lastFinishedWeek(today), -7)), isPublic: true }];
+
   return {
     async logActivity(slug, { difficulty, units: rawUnits, note: rawNote }) {
-      const activity = getActivity(slug);
+      const activity = findActivity(slug, activityList());
       const units = cleanUnits(activity, rawUnits);
       const note = cleanNote(rawNote) ?? undefined;
       const momentum = computeProgress(days(), restDays, today).xpMultiplier;
@@ -303,6 +340,7 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
         entries: [...history.values()].filter((e) => inRange(e.occurredOn)).reverse(),
         trophies: sampleTrophyDays.filter((t) => inRange(t.day)),
         skills: skills.filter((s) => s.unlockedAt && inRange(s.unlockedAt.slice(0, 10))).map((s) => ({ name: s.name, tree: s.tree, day: s.unlockedAt!.slice(0, 10) })),
+        notes: sortDiary(diary.filter((d) => inRange(d.day))),
       };
     },
     async createSeason(input) {
@@ -332,6 +370,78 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
       const q = quests.get(questId);
       if (!q || q.completed) throw new Error("Only active quests can be pinned to a season.");
       q.seasonId = seasonId;
+    },
+    async saveActivity(slug, input) {
+      const clean = normalizeActivityInput(input);
+      if (slug === null) {
+        const list = activityList();
+        upsertOverride(slugFor(clean.name, list.map((a) => a.slug)), { ...overrideFields(clean, undefined), position: list.length });
+      } else {
+        if (!activityList().some((a) => a.slug === slug)) throw new Error("That activity no longer exists.");
+        upsertOverride(slug, overrideFields(clean, gameConfig.activities.find((a) => a.slug === slug)));
+      }
+      return activityList();
+    },
+    async setActivityHidden(slug, hidden) {
+      upsertOverride(slug, { hidden });
+      return activityList();
+    },
+    async resetActivity(slug) {
+      if (!gameConfig.activities.some((a) => a.slug === slug)) throw new Error("Only built-in activities can be reset.");
+      upsertOverride(slug, { name: null, domain: null, unit: null, baseXp: null, xpPerUnit: null, maxUnits: null, defaultUnits: null, quick: null });
+      return activityList();
+    },
+    async deleteActivity(slug) {
+      if (gameConfig.activities.some((a) => a.slug === slug)) throw new Error("Built-in activities can't be deleted, but you can hide them.");
+      for (const e of entries.values()) history.set(e.id, e);
+      const used = [...history.values()].some((e) => e.activitySlug === slug);
+      if (used) upsertOverride(slug, { hidden: true });
+      else overrides = overrides.filter((o) => o.slug !== slug);
+      return { activities: activityList(), hiddenInstead: used };
+    },
+    async reorderActivities(order) {
+      order.forEach((slug, position) => upsertOverride(slug, { position }));
+      return activityList();
+    },
+    async loadDiary({ month, search }) {
+      const list = sortDiary(diary);
+      if (search?.trim()) return { ready: true, entries: searchDiary(list, search) };
+      return { ready: true, entries: list.filter((d) => d.day.startsWith(month ?? "")) };
+    },
+    async saveDiary(input, entryId) {
+      const clean = normalizeDiaryInput(input, today);
+      const now = new Date().toISOString();
+      if (entryId) {
+        const old = diary.find((d) => d.id === entryId);
+        if (!old) throw new Error("That entry no longer exists.");
+        const updated = { ...old, ...clean, updatedAt: now };
+        diary = diary.map((d) => (d.id === entryId ? updated : d));
+        return updated;
+      }
+      const entry: DiaryEntry = { id: id(), ...clean, createdAt: now, updatedAt: now };
+      diary = [entry, ...diary];
+      return entry;
+    },
+    async deleteDiary(entryId) {
+      diary = diary.filter((d) => d.id !== entryId);
+    },
+    async setDiaryPublic(entryId, isPublic) {
+      diary = diary.map((d) => (d.id === entryId ? { ...d, isPublic } : d));
+    },
+    async loadRecaps() {
+      return { ready: true, aiEnabled: false, recaps: [...recaps].sort((a, b) => b.weekStart.localeCompare(a.weekStart)) };
+    },
+    async writeRecap(weekStart) {
+      if (!isDay(weekStart) || weekday(weekStart) !== 0) throw new Error("A week starts on a Monday.");
+      if (addDays(weekStart, 6) > today) throw new Error("This week isn't over yet. Its recap can be written from Sunday.");
+      await new Promise((r) => setTimeout(r, 700)); // feels like writing
+      const old = recaps.find((r) => r.weekStart === weekStart);
+      const recap = { ...recapFor(weekStart), isPublic: old?.isPublic ?? false };
+      recaps = [recap, ...recaps.filter((r) => r.weekStart !== weekStart)];
+      return recap;
+    },
+    async setRecapPublic(weekStart, isPublic) {
+      recaps = recaps.map((r) => (r.weekStart === weekStart ? { ...r, isPublic } : r));
     },
     async syncAchievements() {
       const stats = buildStats({ days: days(), restDays, today, totals, skills, ...counts });

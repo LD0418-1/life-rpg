@@ -1,6 +1,6 @@
 import "server-only";
 import { type AchievementStats, newlyEarned } from "@/lib/game/achievements";
-import { gameConfig } from "@/lib/game/config";
+import { type Activity, gameConfig } from "@/lib/game/config";
 import type { LootItem, Purchase } from "@/lib/game/loot";
 import type { Skill } from "@/lib/game/skills";
 import { buildStats } from "@/lib/game/stats";
@@ -70,9 +70,9 @@ export async function loadGoldSpent(supabase: Supabase): Promise<number> {
 /** Everything achievements are judged on, straight from the database. */
 export async function loadAchievementStats(
   supabase: Supabase,
-  input: { today: string; totals: DomainTotals; streak: StreakData; skills: Skill[] },
+  input: { today: string; totals: DomainTotals; streak: StreakData; skills: Skill[]; activities?: Activity[] },
 ): Promise<AchievementStats> {
-  const minuteSlugs = gameConfig.activities.filter((a) => a.unit === "minute").map((a) => a.slug);
+  const minuteSlugs = (input.activities ?? gameConfig.activities).filter((a) => a.unit === "minute").map((a) => a.slug);
   const [entries, quests, purchases, longest] = await Promise.all([
     supabase.from("log_entries").select("id", { count: "exact", head: true }).not("activity_slug", "is", null),
     supabase.from("quests").select("is_boss").eq("status", "completed").neq("kind", "daily"),

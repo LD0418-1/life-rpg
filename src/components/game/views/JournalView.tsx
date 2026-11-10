@@ -11,6 +11,9 @@ import type { JournalData, LogEntry } from "@/lib/game/types";
 import { levelFromXp } from "@/lib/game/xp";
 import { useGame } from "../GameProvider";
 import { ShareButton } from "../ShareButton";
+import { RecapPanel } from "../RecapPanel";
+import Link from "next/link";
+import { type DiaryEntry, excerpt, moodOf } from "@/lib/game/diary";
 import { PageHeader } from "./PageHeader";
 
 const longDay = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
@@ -26,7 +29,7 @@ function LockIcon({ open }: { open: boolean }) {
 }
 
 export function JournalView() {
-  const { data, backend, canEdit, mode, setEntryPublic, cardHref, summary } = useGame();
+  const { data, backend, canEdit, mode, setEntryPublic, cardHref, summary, basePath } = useGame();
   const [range, setRange] = useState<{ kind: "month"; month: string } | { kind: "season"; seasonId: string }>({ kind: "month", month: monthOf(data.today) });
   const [journal, setJournal] = useState<JournalData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +45,7 @@ export function JournalView() {
     setJournal(null);
     setError(null);
     if (to < from) {
-      setJournal({ entries: [], trophies: [], skills: [] });
+      setJournal({ entries: [], trophies: [], skills: [], notes: [] });
       return;
     }
     backend.loadJournal(from, to).then(
@@ -70,14 +73,15 @@ export function JournalView() {
   }, [data.days]);
 
   const byDay = useMemo(() => {
-    const map = new Map<string, { entries: LogEntry[]; trophies: string[]; skills: string[] }>();
+    const map = new Map<string, { entries: LogEntry[]; trophies: string[]; skills: string[]; notes: DiaryEntry[] }>();
     const slot = (day: string) => {
-      if (!map.has(day)) map.set(day, { entries: [], trophies: [], skills: [] });
+      if (!map.has(day)) map.set(day, { entries: [], trophies: [], skills: [], notes: [] });
       return map.get(day)!;
     };
     for (const e of journal?.entries ?? []) slot(e.occurredOn).entries.push(e);
     for (const t of journal?.trophies ?? []) slot(t.day).trophies.push(ACHIEVEMENTS.find((a) => a.slug === t.slug)?.name ?? t.slug);
     for (const s of journal?.skills ?? []) slot(s.day).skills.push(`${s.name} (${s.tree})`);
+    for (const n of journal?.notes ?? []) slot(n.day).notes.push(n);
     for (const [day] of levelUps) if (day >= from && day <= to) slot(day);
     for (const s of data.seasons) {
       if (s.startsOn >= from && s.startsOn <= to) slot(s.startsOn);
@@ -129,6 +133,8 @@ export function JournalView() {
       </PageHeader>
 
       {error && <p role="alert" className="skew-box mb-6 bg-paper px-6 py-2 text-sm text-ink">{error}</p>}
+
+      <RecapPanel />
 
       <div className="mb-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
@@ -188,10 +194,31 @@ export function JournalView() {
                     ))}
                   </div>
                 )}
+                {items.notes.map((n) => {
+                  const mood = moodOf(n.mood);
+                  const inner = (
+                    <>
+                      <span className="mb-1 flex flex-wrap items-center gap-2 font-label text-[11px] font-extrabold tracking-widest text-ink/60 uppercase">
+                        Diary
+                        {mood && <span>· {mood.glyph} {mood.label}</span>}
+                        {canEdit && !n.isPublic && <span>· 🔒 Private</span>}
+                      </span>
+                      {n.title && <span className="block font-display text-xl leading-tight uppercase">{n.title}</span>}
+                      <span className="block text-sm break-words whitespace-pre-wrap">{canEdit ? excerpt(n.body, 220) : n.body}</span>
+                    </>
+                  );
+                  return canEdit ? (
+                    <Link key={n.id} href={`${basePath}/diary`} className="slash-panel mb-2 block bg-paper px-4 py-3 text-ink hover:shadow-[4px_4px_0_var(--crimson)]">
+                      {inner}
+                    </Link>
+                  ) : (
+                    <div key={n.id} className="slash-panel mb-2 bg-paper px-4 py-3 text-ink">{inner}</div>
+                  );
+                })}
                 {items.entries.length > 0 && (
                   <ul className="slash-panel divide-y divide-ink-3 bg-ink-2 px-4">
                     {items.entries.map((e) => {
-                      const a = activityOf(e.activitySlug);
+                      const a = activityOf(e.activitySlug, data.activities);
                       const tag = e.source && SOURCE_TAG[e.source] ? SOURCE_TAG[e.source] : e.source === "skill" ? "Skill" : e.source === "quest" ? "Quest" : domainGlyph(e.domain);
                       const isPrivate = e.isPublic === false;
                       return (
