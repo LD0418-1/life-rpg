@@ -62,7 +62,7 @@
 
 ## Phase 6: Automatic imports ✅
 - [x] GitHub commits → Code (grouped per repo per day; follow-up items for commits after approval)
-- [x] Strava → Run / Workout (OAuth connect, refresh tokens, moving time)
+- [x] ~~Strava~~: removed later in favor of Apple Health only
 - [x] Apple Health via iOS Shortcut → Walk / Workout / Run / Meditate (token checked in the database, only its hash stored)
 - [x] Import inbox: approve, ignore, restore, approve all; XP uses the normal rules for that day
 - [x] Inbox badge in the sidebar / More sheet, banner on Today
@@ -85,6 +85,15 @@
 - [x] Diary: notes with mood and title, month view, search, private or public; public notes show in the Journal
 - [x] Run `0008_activities_diary_recaps.sql` on the live database
 - [ ] Add `ANTHROPIC_API_KEY` in Vercel
+
+## Apple Health, fully (requested)
+- [x] Strava removed (code, connection, pending items; approved entries stay in the log)
+- [x] Every Apple Health metric is saved: ~30 known ones (steps, distance, energy, exercise, heart rate, resting HR, HRV, blood oxygen, VO₂ max, blood pressure, sleep and stages, weight, body fat, mindful, water, caffeine…) plus any other name
+- [x] Health page: tiles with trend lines and change vs the stretch before, 7 / 30 / 90-day charts with hover and low–high band, table view
+- [x] Sleep earns XP (Sleep activity, via the Inbox)
+- [x] Shortcut guide with every metric name, always available in the Inbox
+- [ ] Run `0009_health_metrics.sql` on the live database
+- [ ] Update the iPhone Shortcut to send the extra metrics
 
 ## Phase 9: Polish
 - [x] Sound effects made in the browser (XP, quest, level-up, boss victory, trophy, error), on/off per device

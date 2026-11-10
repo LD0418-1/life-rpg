@@ -9,7 +9,7 @@
     "A missed day uses a shield if you have one, otherwise the streak resets. Planned rest days (restDaysPerWeek, Mon-Sun) are safe.",
     "Momentum (0-100): +gainPerActiveDay per active day, loses missDecay (15%) per missed day. Rest days don't change it.",
     "Momentum at the start of today gives activities up to +maxXpBonus (20%) XP.",
-    "Imports: GitHub commits become 'code' minutes (minutesPerCommit each). Strava runSports become runs, other sports workouts. Health steps become walks."
+    "Imports: GitHub commits become 'code' minutes (minutesPerCommit each). Apple Health steps become walks, workouts workouts, runs runs, mindful minutes meditation, sleep hours sleep."
   ],
   "domains": [
     { "id": "body", "label": "Body", "glyph": "BDY" },
@@ -39,8 +39,7 @@
   "momentum": { "gainPerActiveDay": 10, "missDecay": 0.15, "maxXpBonus": 0.2 },
   "imports": {
     "github": { "activity": "code", "minutesPerCommit": 15 },
-    "strava": { "runSports": ["Run", "TrailRun", "VirtualRun"], "runActivity": "run", "otherActivity": "workout" },
-    "health": { "steps": "walk", "workout": "workout", "run": "run", "mindful": "meditate" }
+    "health": { "steps": "walk", "workout": "workout", "run": "run", "mindful": "meditate", "sleep": "sleep" }
   },
   "activities": [
     { "slug": "run", "name": "Run", "domain": "body", "unit": "minute", "baseXp": 10, "xpPerUnit": 1, "maxUnits": 120, "defaultUnits": 30, "quick": true },
@@ -53,6 +52,7 @@
     { "slug": "hangout", "name": "Hang out", "domain": "social", "unit": "minute", "baseXp": 20, "xpPerUnit": 0.2, "maxUnits": 300, "defaultUnits": 120, "quick": true },
     { "slug": "meditate", "name": "Meditate", "domain": "spirit", "unit": "minute", "baseXp": 10, "xpPerUnit": 1, "maxUnits": 60, "defaultUnits": 10, "quick": true },
     { "slug": "journal", "name": "Journal", "domain": "spirit", "unit": "session", "baseXp": 15, "xpPerUnit": 0, "maxUnits": 1, "defaultUnits": 1, "quick": true },
-    { "slug": "walk", "name": "Walk", "domain": "body", "unit": "step", "baseXp": 0, "xpPerUnit": 0.003, "maxUnits": 30000, "defaultUnits": 8000, "quick": false }
+    { "slug": "walk", "name": "Walk", "domain": "body", "unit": "step", "baseXp": 0, "xpPerUnit": 0.003, "maxUnits": 30000, "defaultUnits": 8000, "quick": false },
+    { "slug": "sleep", "name": "Sleep", "domain": "body", "unit": "hour", "baseXp": 0, "xpPerUnit": 4, "maxUnits": 8, "defaultUnits": 8, "quick": false }
   ]
 }

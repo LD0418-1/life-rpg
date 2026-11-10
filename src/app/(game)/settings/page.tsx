@@ -189,8 +189,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
         <Panel title="Backup" kicker="Your data, your copy">
           <p className="mb-4 text-sm text-muted">
-            Download everything you&apos;ve saved: your log, quests, skills, seasons, trophies, shop, wallet, diary, recaps and settings. Secret links and
-            tokens (calendar links, Strava and GitHub tokens) are left out.
+            Download everything you&apos;ve saved: your log, quests, skills, seasons, trophies, shop, wallet, diary, recaps, health data and settings. Secret links and
+            tokens (calendar links, the Apple Health token) are left out.
           </p>
           <div className="flex flex-wrap gap-3">
             <a href="/api/export" className="skew-box bg-crimson px-5 py-2 font-label text-lg font-extrabold tracking-wider text-paper uppercase hover:bg-paper hover:text-ink">

@@ -8,7 +8,7 @@ import type { Section } from "@/lib/game/visibility";
 import { PrefsButtons } from "@/components/PrefsControls";
 import { useGame } from "./GameProvider";
 
-type IconName = "today" | "inbox" | "journal" | "diary" | "quests" | "calendar" | "world" | "skills" | "trophies" | "shop" | "wallet" | "settings" | "more";
+type IconName = "today" | "inbox" | "journal" | "diary" | "health" | "quests" | "calendar" | "world" | "skills" | "trophies" | "shop" | "wallet" | "settings" | "more";
 
 function Icon({ name }: { name: IconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "square" as const, strokeLinejoin: "miter" as const };
@@ -17,6 +17,7 @@ function Icon({ name }: { name: IconName }) {
       {name === "today" && <path {...common} d="M13 2 4 14h7l-1 8 9-12h-7z" />}
       {name === "quests" && <path {...common} d="M5 22V3h12l-2.5 4.5L17 12H5" />}
       {name === "journal" && <path {...common} d="M5 3h12l2 2v16H5zM9 8h6M9 12h6M9 16h4" />}
+      {name === "health" && <path {...common} d="M12 20s-8-5-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 9c0 6-8 11-8 11zM5 12h4l1.5-3 3 6 1.5-3h4" />}
       {name === "diary" && <path {...common} d="M4 20h4L20 8l-4-4L4 16zM14 6l4 4M4 20h16" />}
       {name === "inbox" && <path {...common} d="M3 13l3-8h12l3 8v7H3zM3 13h5l1 3h6l1-3h5" />}
       {name === "calendar" && (
@@ -84,6 +85,7 @@ export function AppShell({ children, accountActions, notice }: { children: React
     { href: `${basePath}/quests`, label: "Quests", icon: "quests", primary: true, section: "quests" },
     { href: `${basePath}/journal`, label: "Journal", icon: "journal", visitorPrimary: true, section: "journal" },
     { href: `${basePath}/diary`, label: "Diary", icon: "diary", ownerOnly: true },
+    { href: `${basePath}/health`, label: "Health", icon: "health", ownerOnly: true },
     { href: `${basePath}/calendar`, label: "Calendar", icon: "calendar", ownerOnly: true, primary: true },
     { href: `${basePath}/world`, label: "World", icon: "world", visitorPrimary: true, section: "world" },
     { href: `${basePath}/skills`, label: "Skills", icon: "skills", section: "skills" },

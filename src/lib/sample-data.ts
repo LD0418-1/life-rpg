@@ -14,6 +14,7 @@ import { addDays } from "./game/streaks";
 import { addToTotals, emptyTotals, repeatIndexFor, scoreEntry } from "./game/xp";
 import { type ActivityOverride, mergeActivities } from "./game/activities";
 import type { DiaryEntry } from "./game/diary";
+import type { MetricRow } from "./health/metrics";
 
 // Small seeded random generator, so the sample looks the same on every load.
 function seeded(seed: number) {
@@ -206,6 +207,52 @@ export const sampleActivityOverrides: ActivityOverride[] = [
   { slug: "guitar", name: "Play guitar", domain: "craft", unit: "minute", baseXp: 5, xpPerUnit: 0.8, maxUnits: 120, defaultUnits: 20, quick: true, hidden: false, position: 6 },
 ];
 
+/** 120 days of made-up Apple Health data for the preview's Health page. */
+export function buildSampleHealth(today: string, days = 120): MetricRow[] {
+  const rand = seeded(7);
+  const rows: MetricRow[] = [];
+  const add = (day: string, metric: string, value: number, extra: Partial<MetricRow> = {}) =>
+    rows.push({ day, metric, value: Math.round(value * 10) / 10, min: null, max: null, samples: 1, ...extra });
+  let weight = 81.2;
+  for (let i = days - 1; i >= 0; i--) {
+    const day = addDays(today, -i);
+    const weekend = [0, 6].includes(new Date(`${day}T00:00:00Z`).getUTCDay());
+    const trend = (days - i) / days; // slowly getting fitter
+    const steps = Math.round(5200 + rand() * 6500 + (weekend ? 2500 : 0) + trend * 1200);
+    add(day, "steps", steps);
+    add(day, "distance_km", steps * 0.00074);
+    add(day, "flights", Math.round(rand() * 14));
+    add(day, "active_energy", 280 + rand() * 420 + trend * 60);
+    add(day, "resting_energy", 1680 + rand() * 60);
+    add(day, "exercise_minutes", Math.round(12 + rand() * 50));
+    add(day, "stand_hours", Math.round(8 + rand() * 6));
+    if (rand() < 0.45) add(day, "workout_minutes", Math.round(25 + rand() * 40));
+    if (rand() < 0.3) add(day, "run_minutes", Math.round(22 + rand() * 30));
+    const hr = 66 + rand() * 12;
+    add(day, "heart_rate", Math.round(hr), { min: Math.round(48 + rand() * 6), max: Math.round(130 + rand() * 40), samples: 300 + Math.round(rand() * 200) });
+    add(day, "resting_heart_rate", Math.round(61 - trend * 4 + rand() * 4));
+    add(day, "walking_heart_rate", Math.round(98 + rand() * 10));
+    add(day, "hrv", Math.round(38 + trend * 8 + rand() * 18));
+    add(day, "blood_oxygen", Math.round(95 + rand() * 4));
+    add(day, "respiratory_rate", 13.5 + rand() * 2.5);
+    const sleep = 6 + rand() * 2.4 + (weekend ? 0.6 : 0);
+    add(day, "sleep_hours", sleep);
+    add(day, "time_in_bed_hours", sleep + 0.3 + rand() * 0.5);
+    add(day, "deep_sleep_hours", sleep * (0.13 + rand() * 0.05));
+    add(day, "rem_sleep_hours", sleep * (0.2 + rand() * 0.05));
+    add(day, "core_sleep_hours", sleep * 0.55);
+    if (rand() < 0.6) add(day, "mindful_minutes", Math.round(5 + rand() * 15));
+    if (i % 3 === 0) {
+      weight -= 0.05 + rand() * 0.08;
+      add(day, "weight_kg", weight);
+    }
+    if (i % 14 === 0) add(day, "vo2_max", 41 + trend * 2.5 + rand());
+    add(day, "water_ml", Math.round(1200 + rand() * 1400));
+    add(day, "caffeine_mg", Math.round(rand() * 260));
+  }
+  return rows;
+}
+
 /** A few diary entries for the preview. */
 export function buildSampleDiary(today: string): DiaryEntry[] {
   const at = (day: string, time: string) => `${day}T${time}:00Z`;
@@ -271,7 +318,7 @@ export function buildSampleImports(today: string): ImportItem[] {
   return [
     item("imp1", "github", "commits", 4, "4 commits to life-rpg", 0),
     item("imp2", "health", "steps", 9240, "9240 steps", 1),
-    item("imp3", "strava", "Run", 31, "Morning Run · 31 min · 5.2 km", 1),
+    item("imp3", "health", "sleep", 452, "7.5 h sleep", 1),
     item("imp4", "github", "commits", 2, "2 commits to dotfiles", 2),
     item("imp5", "health", "mindful", 12, "12 mindful min", 2),
   ];

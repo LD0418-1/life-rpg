@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useMemo } from "react";
 import * as actions from "@/app/actions";
 import * as activityActions from "@/app/activity-actions";
 import * as diary from "@/app/diary-actions";
+import * as health from "@/app/health-actions";
 import * as recaps from "@/app/recap-actions";
 import * as calendar from "@/app/calendar-actions";
 import * as imports from "@/app/import-actions";
@@ -94,6 +95,7 @@ export function LiveGame({
       loadRecaps: () => unwrap(recaps.loadRecapsAction(asVisitor)),
       writeRecap: (weekStart, options) => unwrap(recaps.writeRecapAction(weekStart, options)),
       setRecapPublic: (weekStart, isPublic) => unwrap(recaps.setRecapPublicAction(weekStart, isPublic)),
+      loadHealth: (fromDay, toDay) => unwrap(health.loadHealthAction(fromDay, toDay)),
     }),
     [asVisitor],
   );

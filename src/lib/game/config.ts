@@ -49,8 +49,7 @@ export interface GameConfig {
   momentum: { gainPerActiveDay: number; missDecay: number; maxXpBonus: number };
   imports: {
     github: { activity: string; minutesPerCommit: number };
-    strava: { runSports: string[]; runActivity: string; otherActivity: string };
-    health: Record<"steps" | "workout" | "run" | "mindful", string>;
+    health: Record<"steps" | "workout" | "run" | "mindful" | "sleep", string>;
   };
   activities: Activity[];
 }
@@ -95,7 +94,7 @@ export function validateConfig(config: GameConfig): GameConfig {
   }
 
   const im = config.imports;
-  const mapped = [im.github.activity, im.strava.runActivity, im.strava.otherActivity, ...Object.values(im.health)];
+  const mapped = [im.github.activity, ...Object.values(im.health)];
   for (const slug of mapped) if (!slugs.has(slug)) errors.push(`imports refer to unknown activity "${slug}"`);
   if (!(im.github.minutesPerCommit > 0)) errors.push("imports.github.minutesPerCommit must be > 0");
 

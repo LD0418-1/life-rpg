@@ -36,6 +36,7 @@ const TABLES: Record<string, string> = {
   activity_settings: "*",
   diary_entries: "*",
   weekly_recaps: "*",
+  health_metrics: "*",
 };
 
 /** Reads a whole table, 1,000 rows at a time (the API's page size). Null if the table doesn't exist yet. */

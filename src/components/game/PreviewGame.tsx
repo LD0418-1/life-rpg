@@ -5,6 +5,7 @@ import { newlyEarned } from "@/lib/game/achievements";
 import { gameConfig } from "@/lib/game/config";
 import { type ActivityOverride, findActivity, mergeActivities, normalizeActivityInput, overrideFields, slugFor } from "@/lib/game/activities";
 import { type DiaryEntry, normalizeDiaryInput, searchDiary, sortDiary } from "@/lib/game/diary";
+import type { MetricRow } from "@/lib/health/metrics";
 import { basicRecap, buildWeekStats, lastFinishedWeek } from "@/lib/game/recap";
 import { ACHIEVEMENTS } from "@/lib/game/achievements";
 import { addDays, isDay, weekday } from "@/lib/game/streaks";
@@ -26,7 +27,7 @@ import { buildStats } from "@/lib/game/stats";
 import { checkPlanRest, checkUnplanRest, computeProgress } from "@/lib/game/streaks";
 import type { LogEntry, Quest, SheetBackend, WeeklyRecap } from "@/lib/game/types";
 import { addToTotals, scoreEntry } from "@/lib/game/xp";
-import { type SampleWorld, buildAllSampleEntries, buildSampleDiary, buildSampleEvents, buildSampleImports, buildSampleTxs, buildSampleWorld, sampleActivityOverrides, sampleDailies } from "@/lib/sample-data";
+import { type SampleWorld, buildAllSampleEntries, buildSampleDiary, buildSampleHealth, buildSampleEvents, buildSampleImports, buildSampleTxs, buildSampleWorld, sampleActivityOverrides, sampleDailies } from "@/lib/sample-data";
 import { type ImportItem, mapImport, newImportToken } from "@/lib/imports/core";
 import { normalizeFeedUrl } from "@/lib/calendar/ics";
 import { type FinanceSettings, type MoneyTx, monthRange, normalizeFinanceSettings, normalizeTx } from "@/lib/game/finance";
@@ -97,6 +98,7 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
     overrides = existing ? overrides.map((o) => (o.slug === slug ? { ...o, ...patch } : o)) : [...overrides, { ...blank, ...patch }];
   };
   let diary: DiaryEntry[] = buildSampleDiary(today);
+  let sampleHealth: MetricRow[] | null = null;
   const recapFor = (weekStart: string): WeeklyRecap => {
     for (const e of entries.values()) history.set(e.id, e);
     const all = [...history.values()];
@@ -287,7 +289,6 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
         recent: importItems.filter((i) => i.status !== "pending").slice(0, 20),
         connections: {
           github: { username: githubUser, lastSyncedAt: githubUser ? new Date().toISOString() : null, hasToken: false },
-          strava: { configured: false, connected: false, athlete: null, lastSyncedAt: null },
           health: { hasToken: healthToken, lastSyncedAt: null },
         },
       };
@@ -439,6 +440,10 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
       const recap = { ...recapFor(weekStart), isPublic: old?.isPublic ?? false };
       recaps = [recap, ...recaps.filter((r) => r.weekStart !== weekStart)];
       return recap;
+    },
+    async loadHealth(fromDay, toDay) {
+      sampleHealth ??= buildSampleHealth(today);
+      return { ready: true, connected: true, lastSyncedAt: `${today}T05:30:00Z`, metrics: sampleHealth.filter((m) => m.day >= fromDay && m.day <= toDay) };
     },
     async setRecapPublic(weekStart, isPublic) {
       recaps = recaps.map((r) => (r.weekStart === weekStart ? { ...r, isPublic } : r));

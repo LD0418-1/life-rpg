@@ -14,7 +14,8 @@ A sidebar on big screens and a tab bar on phones link these sections:
 - `/journal`: the **weekly recap** on top, then a timeline by month or season with level-ups, trophies, skills, season milestones and diary notes. Lock any entry to keep it private.
 - `/diary` (owner only): free-form notes with a mood and title, by month, with search. Private unless you make an entry public.
 - `/showcase`: your public page exactly as a logged-out visitor sees it. Also linked as "View as visitor".
-- `/inbox` (owner only): imports from GitHub, Strava and Apple Health waiting for your approval, plus connection settings.
+- `/inbox` (owner only): imports from GitHub and Apple Health waiting for your approval, plus connection settings and the Apple Health Shortcut guide.
+- `/health` (owner only, never public): everything Apple Health sends (steps, sleep, heart rate, HRV, weight, energy, nutrition and more), with 7 / 30 / 90-day charts and a table view.
 - `/calendar` (owner only): your Google / Apple calendars (via their private iCal links), plus Life RPG days: XP, rest days, quests cleared, seasons.
 - `/shop` (owner only): the loot shop and your inventory, with shop purchases and custom quest rewards. "Use it" can log what it cost to the wallet.
 - `/wallet` (owner only): income and spending by category and day, monthly budget, entries by month.
@@ -76,6 +77,7 @@ supabase/migrations/
   0006_imports.sql            import inbox + connections, approve_import, ingest_health (Apple Health)
   0007_showcase_privacy.sql   what visitors see: section switches, hidden domains (enforced in the database)
   0008_activities_diary_recaps.sql  your own quick-log activities, diary, weekly recaps
+  0009_health_metrics.sql     all Apple Health metrics; Strava removed
 ```
 
 ### The scoring rules (`src/config/xp.json`)
@@ -119,7 +121,7 @@ The style is an original high-contrast JRPG menu look: ink black, paper white an
 ## Setting up Supabase
 
 1. Create a project at supabase.com.
-2. In **SQL Editor**, run each file in `supabase/migrations/` in order: `0001_init.sql`, `0002_totals_and_rewards.sql`, `0003_streaks.sql`, `0004_depth.sql`, `0005_rewards_wallet_calendar.sql`, `0006_imports.sql`, `0007_showcase_privacy.sql`, `0008_activities_diary_recaps.sql`.
+2. In **SQL Editor**, run each file in `supabase/migrations/` in order: `0001_init.sql`, `0002_totals_and_rewards.sql`, `0003_streaks.sql`, `0004_depth.sql`, `0005_rewards_wallet_calendar.sql`, `0006_imports.sql`, `0007_showcase_privacy.sql`, `0008_activities_diary_recaps.sql`, `0009_health_metrics.sql`.
 3. In **Authentication → Users → Add user**, create your user and tick **Auto Confirm User**.
 4. In **Authentication → Sign In / Providers**, turn off **Allow new users to sign up**.
 5. Make yourself the owner by running this in the SQL Editor:
@@ -149,14 +151,17 @@ It opens full screen with its own icon. Pages always load fresh from the network
 - **Privacy** (Settings → What visitors see): switch sections on or off (quests, journal, streak, world, skills, trophies, seasons) and hide whole domains. Lock single quests or entries with 🔒. Quests, skills, trophies, seasons, rest days, hidden domains and locked items are blocked by database rules (`0007_showcase_privacy.sql`), not just hidden on the page. The wallet, shop, gold, calendar, inbox and rewards are never visible to visitors.
 - **Share cards** (`/api/card?type=profile|level|boss|season`): PNG images drawn on the server from data the current viewer may see. Share buttons appear on the level-up and boss-victory screens, on seasons, in the Journal, and on your showcase. Your site link previews with your profile card (or a neutral "Coming soon" card while private).
 
-## Imports (GitHub, Strava, Apple Health)
+## Imports (GitHub, Apple Health)
 
 Everything lands in the **Inbox** as pending. Nothing counts until you approve it, and the database blocks importing the same thing twice. The rules for turning imports into activities are in `xp.json` → `imports`.
 
 - **GitHub:** enter your username in Inbox → Connections. Commits are grouped per repo per day, each worth `minutesPerCommit` minutes of Code. Private repos are optional: create a fine-grained token (read-only, "Contents" and "Metadata") and add it in Vercel as `GITHUB_TOKEN`.
-- **Strava:** create an app at strava.com/settings/api, set its Authorization Callback Domain to your site's domain, add `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET` in Vercel, redeploy, then click **Connect Strava** in the Inbox.
-- **Apple Health:** Inbox → Apple Health → Set up shows a token (once) and step-by-step Shortcut instructions. The Shortcut POSTs `{ date, steps, workout_minutes, run_minutes, mindful_minutes }` to `/api/import/health` with `Authorization: Bearer <token>`. Only a sha-256 fingerprint of the token is stored.
-- Connected sources sync automatically when you open the Inbox, if the last sync was over 30 minutes ago, or whenever you press **Sync now**.
+- **Apple Health:** Inbox → Apple Health → Set up shows a token (once) and the Shortcut guide (also under "How to set up the Shortcut" later). The Shortcut POSTs one day of data to `/api/import/health` with `Authorization: Bearer <token>`, e.g. `{ "date": "2026-11-10", "steps": 8423, "sleep_hours": 7.4, "heart_rate": [62, 75, 88], "resting_heart_rate": 58 }`, or several days as `{ "days": [...] }`.
+  - **Every metric** is saved for the Health page. The known ones (about 30: activity, heart, sleep, body, mind, nutrition) and how each day is combined (sum, average, latest) are listed in `src/lib/health/metrics.ts`. Any other name is kept too, under "Other".
+  - Values can be numbers or lists of samples. Lists of heart rate and similar readings are averaged, and the day's low and high are kept.
+  - **XP:** steps → Walk, workouts → Workout, runs → Run, mindful minutes → Meditate, sleep → Sleep (4 XP an hour, up to 8 hours). These go to the Inbox for approval like before.
+  - Only a sha-256 fingerprint of the token is stored. Health data is owner-only and never shown to visitors (`0009_health_metrics.sql`).
+- GitHub syncs automatically when you open the Inbox, if the last sync was over 30 minutes ago, or whenever you press **Sync now**.
 
 ## Weekly recaps written by Claude
 

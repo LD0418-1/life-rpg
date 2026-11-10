@@ -1,10 +1,10 @@
-// Imports: turning outside activity (GitHub, Strava, Apple Health) into
+// Imports: turning outside activity (GitHub, Apple Health) into
 // inbox items, and inbox items into activities. No network code here, so it's
 // easy to test; fetching lives in src/app/import-actions.ts.
 import { type Activity, type GameConfig, gameConfig, getActivity } from "../game/config";
-import { isDay } from "../game/streaks";
 
-export type ImportSource = "github" | "strava" | "health";
+/** "strava" only appears on old items from before it was removed. */
+export type ImportSource = "github" | "health";
 
 export interface ImportItem {
   id: string;
@@ -30,10 +30,10 @@ export function mapImport(item: Pick<ImportItem, "source" | "kind" | "quantity">
   if (item.source === "github") {
     slug = im.github.activity;
     units = item.quantity * im.github.minutesPerCommit;
-  } else if (item.source === "strava") {
-    slug = im.strava.runSports.includes(item.kind) ? im.strava.runActivity : im.strava.otherActivity;
   } else {
+    // Apple Health (and old Strava items, which count as workouts).
     slug = im.health[item.kind as keyof typeof im.health] ?? im.health.workout;
+    if (item.kind === "sleep") units = item.quantity / 60; // stored in minutes, scored in hours
   }
   const activity = getActivity(slug, config);
   return { activity, units: Math.min(Math.max(units, 0), activity.maxUnits) };
@@ -85,66 +85,9 @@ export function groupGithubCommits(commits: ReadonlyArray<GithubCommit>, existin
 
 // ---------- Strava ----------
 
-export interface StravaActivity {
-  id: number | string;
-  name: string;
-  sport_type?: string;
-  type?: string;
-  moving_time: number; // seconds
-  distance?: number; // meters
-  start_date_local: string; // "2026-11-10T07:12:00Z" (local time, Z is cosmetic)
-}
-
-export function stravaToDraft(a: StravaActivity): ImportDraft | null {
-  const minutes = Math.round(a.moving_time / 60);
-  if (minutes < 1) return null;
-  const sport = a.sport_type || a.type || "Workout";
-  const km = a.distance ? Math.round(a.distance / 100) / 10 : null;
-  return {
-    source: "strava",
-    externalId: String(a.id),
-    kind: sport,
-    quantity: minutes,
-    title: `${a.name || sport} · ${minutes} min${km ? ` · ${km} km` : ""}`,
-    occurredOn: a.start_date_local.slice(0, 10),
-    details: { sport, distanceKm: km },
-  };
-}
-
 // ---------- Apple Health (iPhone Shortcut) ----------
-
-export interface HealthRow {
-  kind: "steps" | "workout" | "run" | "mindful";
-  day: string;
-  quantity: number;
-}
-
-const HEALTH_FIELDS: Record<string, HealthRow["kind"]> = {
-  steps: "steps",
-  workout_minutes: "workout",
-  run_minutes: "run",
-  mindful_minutes: "mindful",
-};
-
-/**
- * Reads what the Shortcut sends: { date, steps, workout_minutes, run_minutes, mindful_minutes }.
- * Numbers may arrive as strings ("8,423" or "35.5"), because that's how Shortcuts formats them.
- */
-export function parseHealthPayload(body: unknown, fallbackDay: string): HealthRow[] {
-  if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("Send a JSON object.");
-  const obj = body as Record<string, unknown>;
-  const rawDay = typeof obj.date === "string" ? obj.date.trim().slice(0, 10) : fallbackDay;
-  if (!isDay(rawDay)) throw new Error('"date" must look like 2026-11-10.');
-  const rows: HealthRow[] = [];
-  for (const [field, kind] of Object.entries(HEALTH_FIELDS)) {
-    if (obj[field] === undefined || obj[field] === null || obj[field] === "") continue;
-    const n = typeof obj[field] === "number" ? (obj[field] as number) : Number(String(obj[field]).replace(/[,\s]/g, ""));
-    if (!Number.isFinite(n) || n < 0) throw new Error(`"${field}" must be a number.`);
-    if (n > 0) rows.push({ kind, day: rawDay, quantity: Math.round(n) });
-  }
-  if (!rows.length) throw new Error("Nothing to import: send steps, workout_minutes, run_minutes or mindful_minutes.");
-  return rows;
-}
+// The payload parser and the list of metrics live in src/lib/health/metrics.ts.
+export { type HealthRow, parseHealthPayload } from "../health/metrics";
 
 /** A random import token for the iPhone Shortcut (shown once; only its hash is stored). */
 export function newImportToken(): string {

@@ -1,11 +1,11 @@
 import "server-only";
 // Server-side import plumbing shared by the import actions and routes:
-// fetching from GitHub/Strava, saving drafts, and approving items into XP.
+// fetching from GitHub, saving drafts, and approving items into XP.
 import { createHash } from "node:crypto";
 import { computeProgress } from "@/lib/game/streaks";
 import type { LogEntry } from "@/lib/game/types";
 import { scoreEntry } from "@/lib/game/xp";
-import { type GithubCommit, type ImportDraft, type ImportItem, type StravaActivity, groupGithubCommits, mapImport, stravaToDraft } from "@/lib/imports/core";
+import { type GithubCommit, type ImportDraft, type ImportItem, groupGithubCommits, mapImport } from "@/lib/imports/core";
 import { type LogEntryRow, toLogEntry } from "@/lib/supabase/rows";
 import type { createClient } from "@/lib/supabase/server";
 import { type Activity, gameConfig } from "@/lib/game/config";
@@ -98,48 +98,6 @@ export async function syncGithub(supabase: Supabase, username: string, since: st
     commits,
     (existing ?? []).map((e) => ({ externalId: e.external_id as string, status: e.status as ImportItem["status"], details: (e.details ?? {}) as Record<string, unknown> })),
   );
-  return saveDrafts(supabase, drafts);
-}
-
-// ---------- Strava ----------
-
-export const stravaConfigured = () => Boolean(process.env.STRAVA_CLIENT_ID && process.env.STRAVA_CLIENT_SECRET);
-
-export async function stravaToken(body: Record<string, string>): Promise<{ access_token: string; refresh_token: string; athlete?: { firstname?: string; lastname?: string } }> {
-  const res = await fetch("https://www.strava.com/oauth/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "User-Agent": UA },
-    body: JSON.stringify({ client_id: process.env.STRAVA_CLIENT_ID, client_secret: process.env.STRAVA_CLIENT_SECRET, ...body }),
-    signal: AbortSignal.timeout(15_000),
-    cache: "no-store",
-  });
-  if (res.status === 400 || res.status === 401) throw new Error("Strava refused the connection. Try connecting again.");
-  if (!res.ok) throw new Error(`Strava answered with an error (${res.status}).`);
-  return res.json();
-}
-
-export async function syncStrava(supabase: Supabase, refreshToken: string, sinceEpoch: number): Promise<number> {
-  if (!stravaConfigured()) throw new Error("Strava isn't set up on the server yet (STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET).");
-  const tok = await stravaToken({ grant_type: "refresh_token", refresh_token: refreshToken });
-  if (tok.refresh_token !== refreshToken) {
-    await supabase.from("import_connections").update({ secret: tok.refresh_token }).eq("source", "strava");
-  }
-  const drafts: ImportDraft[] = [];
-  for (let page = 1; page <= 3; page++) {
-    const res = await fetch(`https://www.strava.com/api/v3/athlete/activities?after=${sinceEpoch}&per_page=100&page=${page}`, {
-      headers: { Authorization: `Bearer ${tok.access_token}`, "User-Agent": UA },
-      signal: AbortSignal.timeout(15_000),
-      cache: "no-store",
-    });
-    if (res.status === 429) throw new Error("Strava is rate-limiting requests. Try again in 15 minutes.");
-    if (!res.ok) throw new Error(`Strava answered with an error (${res.status}).`);
-    const list = (await res.json()) as StravaActivity[];
-    for (const a of list) {
-      const d = stravaToDraft(a);
-      if (d) drafts.push(d);
-    }
-    if (list.length < 100) break;
-  }
   return saveDrafts(supabase, drafts);
 }
 

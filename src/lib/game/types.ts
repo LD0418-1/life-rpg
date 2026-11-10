@@ -12,6 +12,7 @@ import type { Visibility } from "./visibility";
 import type { ActivityInput, GameActivity } from "./activities";
 import type { DiaryEntry, DiaryInput } from "./diary";
 import type { WeekStats } from "./recap";
+import type { MetricRow } from "../health/metrics";
 
 export interface LogEntry {
   id: string;
@@ -148,6 +149,16 @@ export interface RecapsData {
   recaps: WeeklyRecap[];
 }
 
+export interface HealthData {
+  /** False until the 0009 database script (health metrics) has been run. */
+  ready: boolean;
+  /** One row per metric per day, oldest first. */
+  metrics: MetricRow[];
+  /** An iPhone Shortcut token exists. */
+  connected: boolean;
+  lastSyncedAt: string | null;
+}
+
 export interface DiaryData {
   ready: boolean;
   entries: DiaryEntry[];
@@ -166,7 +177,6 @@ export interface JournalData {
 
 export interface ImportConnections {
   github: { username: string | null; lastSyncedAt: string | null; hasToken: boolean };
-  strava: { configured: boolean; connected: boolean; athlete: string | null; lastSyncedAt: string | null };
   health: { hasToken: boolean; lastSyncedAt: string | null };
 }
 
@@ -289,4 +299,6 @@ export interface SheetBackend {
   /** Writes (or rewrites) the recap for the week starting on this Monday. */
   writeRecap(weekStart: string, options: { useDiary: boolean }): Promise<WeeklyRecap>;
   setRecapPublic(weekStart: string, isPublic: boolean): Promise<void>;
+  /** Apple Health metrics between two days (inclusive). */
+  loadHealth(fromDay: string, toDay: string): Promise<HealthData>;
 }

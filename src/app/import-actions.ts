@@ -12,9 +12,7 @@ import {
   NEEDS_0006,
   approveItem,
   sha256Hex,
-  stravaConfigured,
   syncGithub,
-  syncStrava,
   toImportItem,
 } from "@/lib/server/imports";
 import { isMissingRelation, loadStreakData } from "@/lib/supabase/streak-data";
@@ -48,16 +46,6 @@ async function syncSources(only?: ImportSource, onlyIfStale = false): Promise<{ 
       errors.push(`GitHub: ${e instanceof Error ? e.message : "sync failed"}`);
     }
   }
-  const st = conns.get("strava");
-  if (st?.secret && (!only || only === "strava") && stale(st)) {
-    try {
-      const since = Math.floor(Date.parse(`${sinceDay(st, 30)}T00:00:00Z`) / 1000);
-      added += await syncStrava(supabase, st.secret, since);
-      await supabase.from("import_connections").update({ last_synced_at: new Date().toISOString() }).eq("source", "strava");
-    } catch (e) {
-      errors.push(`Strava: ${e instanceof Error ? e.message : "sync failed"}`);
-    }
-  }
   return { added, errors };
 }
 
@@ -72,7 +60,6 @@ export async function loadImportsAction(): Promise<ActionResult<ImportsData>> {
           ready: false, pending: [], recent: [],
           connections: {
             github: { username: null, lastSyncedAt: null, hasToken: Boolean(process.env.GITHUB_TOKEN) },
-            strava: { configured: stravaConfigured(), connected: false, athlete: null, lastSyncedAt: null },
             health: { hasToken: false, lastSyncedAt: null },
           },
         };
@@ -89,7 +76,6 @@ export async function loadImportsAction(): Promise<ActionResult<ImportsData>> {
     if (pending.error) throw new Error(pending.error.message);
     if (recent.error) throw new Error(recent.error.message);
     const gh = fresh.get("github");
-    const st = fresh.get("strava");
     const he = fresh.get("health");
     return {
       ready: true,
@@ -97,12 +83,6 @@ export async function loadImportsAction(): Promise<ActionResult<ImportsData>> {
       recent: ((recent.data ?? []) as ImportItemRow[]).map(toImportItem),
       connections: {
         github: { username: (gh?.settings?.username as string) ?? null, lastSyncedAt: gh?.last_synced_at ?? null, hasToken: Boolean(process.env.GITHUB_TOKEN) },
-        strava: {
-          configured: stravaConfigured(),
-          connected: Boolean(st?.secret),
-          athlete: (st?.settings?.athlete as string) ?? null,
-          lastSyncedAt: st?.last_synced_at ?? null,
-        },
         health: { hasToken: Boolean(he?.token_hash), lastSyncedAt: he?.last_synced_at ?? null },
       },
     };
