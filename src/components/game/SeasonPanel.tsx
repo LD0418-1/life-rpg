@@ -7,6 +7,25 @@ import { XpBar } from "@/components/ui/XpBar";
 import { type Season, currentSeason, daysBetween, seasonState, seasonStats, suggestSeason } from "@/lib/game/seasons";
 import { addDays } from "@/lib/game/streaks";
 import { useGame } from "./GameProvider";
+import { ShareButton } from "./ShareButton";
+
+/** "Share recap" for a season (owner and preview only). */
+function SeasonShare({ season, stats }: { season: Season; stats: ReturnType<typeof seasonStats> }) {
+  const { mode, cardHref } = useGame();
+  if (mode === "visitor") return null;
+  const href = cardHref({
+    type: "season",
+    seasonId: season.id,
+    name: season.name,
+    rank: stats.rank,
+    xp: stats.xp,
+    activeDays: stats.activeDays,
+    days: stats.state === "past" ? stats.totalDays : stats.elapsedDays,
+    goals: `${stats.goalsDone}/${stats.goalsTotal}`,
+    levels: stats.levelNow > stats.levelAtStart ? `${stats.levelAtStart} → ${stats.levelNow}` : String(stats.levelNow),
+  });
+  return <ShareButton href={href} filename="season-recap.png" title={`Season recap: ${season.name}`} label="Share recap" className="!text-sm" />;
+}
 
 const fieldClass = "w-full bg-ink-3 px-3 py-2 text-paper outline-none focus:ring-2 focus:ring-crimson [color-scheme:dark]";
 const labelClass = "mb-1 block font-label text-sm font-extrabold tracking-widest text-muted uppercase";
@@ -231,6 +250,9 @@ function CurrentSeason({ season }: { season: Season }) {
               </ul>
             )}
           </div>
+          <div className="mt-5">
+            <SeasonShare season={season} stats={stats} />
+          </div>
           {data.seasons.some((s) => seasonState(s, data.today) === "upcoming") || !canEdit ? null : (
             <PlanNext after={season.endsOn} />
           )}
@@ -298,6 +320,9 @@ function PastSeasonCard({ season }: { season: Season }) {
               {stats.levelAtStart} → {stats.levelNow}
             </dd>
           </dl>
+          <div className="mt-3">
+            <SeasonShare season={season} stats={stats} />
+          </div>
         </>
       )}
     </li>

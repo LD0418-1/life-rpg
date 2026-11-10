@@ -69,11 +69,12 @@
 - [ ] ~~Calendar imports~~: skipped, the Calendar page already shows events, and counting meetings as XP would inflate stats
 - [x] Run `0006_imports.sql` on the live database
 
-## Phase 7: Public showcase and journal
-- [ ] Public profile page
-- [ ] Privacy controls per item / domain
-- [ ] Timeline / journal view
-- [ ] Share images
+## Phase 7: Public showcase and journal ✅
+- [x] Public showcase page for visitors (home page when logged out); "View as visitor" preview at /showcase
+- [x] Privacy controls: section switches, hidden domains, per-quest / per-entry locks, enforced by database rules
+- [x] Journal: timeline by month or season with level-ups, trophies, skills, season milestones, summary
+- [x] Share cards (profile, level-up, boss, season) + link-preview image; Share on level-up / victory screens
+- [ ] Run `0007_showcase_privacy.sql` on the live database
 
 ## Phase 8: Weekly AI recap
 - [ ] End-of-week recap saved to the journal

@@ -23,6 +23,8 @@ import {
 } from "@/lib/supabase/rows";
 import type { SeasonGoal } from "@/lib/game/seasons";
 import { createClient } from "@/lib/supabase/server";
+import { createAnonClient } from "@/lib/supabase/anon";
+import { parseVisibility } from "@/lib/game/visibility";
 import { isMissingRelation, loadStreakData } from "@/lib/supabase/streak-data";
 
 /** How many imports are waiting in the inbox (0 if imports aren't set up yet). */
@@ -57,12 +59,13 @@ export async function loadTotals(supabase: Supabase): Promise<DomainTotals> {
   return totals;
 }
 
-/** Loads the whole game state. Visitors only get what the security rules allow. */
-export async function loadSheet(): Promise<SheetResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+/**
+ * Loads the whole game state. Visitors only get what the security rules allow.
+ * `asVisitor` ignores your login, to preview exactly what visitors see.
+ */
+export async function loadSheet(options: { asVisitor?: boolean } = {}): Promise<SheetResult> {
+  const supabase = options.asVisitor ? createAnonClient() : await createClient();
+  const user = options.asVisitor ? null : (await supabase.auth.getUser()).data.user;
 
   const [profileRes, ownerRes] = await Promise.all([
     // "*" so this keeps working before 0004_depth.sql adds the theme column.
@@ -141,6 +144,7 @@ export async function loadSheet(): Promise<SheetResult> {
       rewards: rewardData.rewards,
       extrasReady: rewardData.ready,
       pendingImports,
+      visibility: parseVisibility(profile.visibility),
     },
   };
 }

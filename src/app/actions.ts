@@ -43,6 +43,7 @@ import { gameConfig } from "@/lib/game/config";
 import { type LootItem, type NewLootInput, type Purchase, normalizeNewLoot } from "@/lib/game/loot";
 import { type NewSkillInput, type Skill, deleteBlocker, normalizeNewSkill } from "@/lib/game/skills";
 import { checkTheme } from "@/lib/game/themes";
+import { SECTIONS, type Section, visibilityJson } from "@/lib/game/visibility";
 import type { AchievementSync, QuestCompletion } from "@/lib/game/types";
 import { type MoneyTx, normalizeTx } from "@/lib/game/finance";
 import { isMissingRelation } from "@/lib/supabase/streak-data";
@@ -480,6 +481,26 @@ export async function syncAchievementsAction(): Promise<ActionResult<Achievement
   });
 }
 
+// ---------- Privacy ----------
+
+export async function setQuestPublicAction(questId: string, isPublic: boolean): Promise<ActionResult<void>> {
+  return run(async () => {
+    const { supabase } = await ownerContext();
+    const { data, error } = await supabase.from("quests").update({ is_public: isPublic }).eq("id", questId).select("id");
+    if (error) throw new Error(error.message);
+    if (!data?.length) throw new Error("That quest no longer exists.");
+  });
+}
+
+export async function setEntryPublicAction(entryId: string, isPublic: boolean): Promise<ActionResult<void>> {
+  return run(async () => {
+    const { supabase } = await ownerContext();
+    const { data, error } = await supabase.from("log_entries").update({ is_public: isPublic }).eq("id", entryId).select("id");
+    if (error) throw new Error(error.message);
+    if (!data?.length) throw new Error("That entry no longer exists.");
+  });
+}
+
 // ---------- Profile ----------
 
 /** Saves the browser's time zone so "today" matches where you are. */
@@ -514,6 +535,11 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
       is_public: formData.get("is_public") === "on",
       updated_at: new Date().toISOString(),
     };
+    if (formData.get("visibility_form") === "1") {
+      const sections = Object.fromEntries(SECTIONS.map((sec) => [sec, formData.get(`show_${sec}`) === "on"])) as Record<Section, boolean>;
+      const hiddenDomains = gameConfig.domains.map((d) => d.id).filter((d) => formData.get(`hide_${d}`) === "on");
+      update.visibility = visibilityJson({ sections, hiddenDomains });
+    }
     const theme = formData.get("theme");
     if (typeof theme === "string" && theme) {
       checkTheme(theme, summarizeTotals(await loadTotals(supabase)).overall.level);

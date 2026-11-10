@@ -69,3 +69,22 @@ describe("quest rewards and quick tasks", () => {
     expect(q.objectives).toEqual(["Math lecture"]);
   });
 });
+
+describe("visibility settings", async () => {
+  const { parseVisibility, visibilityJson, DEFAULT_VISIBILITY } = await import("./visibility");
+  it("defaults to showing everything", () => {
+    expect(parseVisibility(null)).toEqual(DEFAULT_VISIBILITY);
+    expect(parseVisibility({})).toEqual(DEFAULT_VISIBILITY);
+  });
+  it("reads saved switches and hidden domains, ignoring junk", () => {
+    const v = parseVisibility({ quests: false, streak: "no", hiddenDomains: ["social", 3] });
+    expect(v.sections.quests).toBe(false);
+    expect(v.sections.streak).toBe(true);
+    expect(v.hiddenDomains).toEqual(["social"]);
+  });
+  it("round-trips to the stored JSON", () => {
+    const v = parseVisibility({ trophies: false, hiddenDomains: ["social", "social"] });
+    expect(visibilityJson(v)).toMatchObject({ trophies: false, quests: true, hiddenDomains: ["social"] });
+    expect(parseVisibility(visibilityJson(v))).toEqual({ ...v, hiddenDomains: ["social"] });
+  });
+});

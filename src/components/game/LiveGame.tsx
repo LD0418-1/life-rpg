@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useMemo } from "react";
 import * as actions from "@/app/actions";
 import * as calendar from "@/app/calendar-actions";
 import * as imports from "@/app/import-actions";
+import * as journal from "@/app/journal-actions";
 import * as wallet from "@/app/wallet-actions";
 import type { ActionResult } from "@/app/actions";
 import type { SheetBackend, SheetData } from "@/lib/game/types";
@@ -20,7 +21,20 @@ async function unwrap<T>(promise: Promise<ActionResult<T>>): Promise<T> {
 }
 
 /** The real game, backed by Supabase through server actions. */
-export function LiveGame({ initial, isOwner, children }: { initial: SheetData; isOwner: boolean; children: ReactNode }) {
+export function LiveGame({
+  initial,
+  isOwner,
+  children,
+  asVisitor = false,
+  basePath = "",
+}: {
+  initial: SheetData;
+  isOwner: boolean;
+  children: ReactNode;
+  /** Preview your page exactly as a logged-out visitor sees it (the /showcase pages). */
+  asVisitor?: boolean;
+  basePath?: string;
+}) {
   const router = useRouter();
 
   const backend = useMemo<SheetBackend>(
@@ -58,22 +72,25 @@ export function LiveGame({ initial, isOwner, children }: { initial: SheetData; i
       saveGithub: (username) => unwrap(imports.saveGithubAction(username)),
       disconnectImport: (source) => unwrap(imports.disconnectImportAction(source)),
       createHealthToken: () => unwrap(imports.createHealthTokenAction()),
+      setQuestPublic: (questId, isPublic) => unwrap(actions.setQuestPublicAction(questId, isPublic)),
+      setEntryPublic: (entryId, isPublic) => unwrap(actions.setEntryPublicAction(entryId, isPublic)),
+      loadJournal: (fromDay, toDay) => unwrap(journal.loadJournalAction(fromDay, toDay, asVisitor)),
       syncAchievements: () => unwrap(actions.syncAchievementsAction()),
       createSeason: (input) => unwrap(actions.createSeasonAction(input)),
       updateSeason: (seasonId, edit) => unwrap(actions.updateSeasonAction(seasonId, edit)),
       setQuestSeason: (questId, seasonId) => unwrap(actions.setQuestSeasonAction(questId, seasonId)),
     }),
-    [],
+    [asVisitor],
   );
 
   // First visit as owner: save your time zone so "today" is your today.
   useEffect(() => {
-    if (!isOwner) return;
+    if (!isOwner || asVisitor) return;
     const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (browserZone && browserZone !== initial.timezone) {
       actions.setTimezoneAction(browserZone).then((r) => r.ok && router.refresh());
     }
-  }, [isOwner, initial.timezone, router]);
+  }, [isOwner, asVisitor, initial.timezone, router]);
 
   return (
     <GameProvider
@@ -81,12 +98,22 @@ export function LiveGame({ initial, isOwner, children }: { initial: SheetData; i
       key={`${initial.today}-${initial.timezone}`}
       initial={initial}
       backend={backend}
-      mode={isOwner ? "owner" : "visitor"}
-      basePath=""
+      mode={isOwner && !asVisitor ? "owner" : "visitor"}
+      basePath={basePath}
     >
       <AppShell
+        notice={
+          asVisitor ? (
+            <>
+              Viewing your page as a visitor ·{" "}
+              <Link href="/" className="underline">
+                Back to your sheet
+              </Link>
+            </>
+          ) : undefined
+        }
         accountActions={
-          isOwner ? (
+          asVisitor ? undefined : isOwner ? (
             <form action={actions.signOutAction}>
               <button className="font-label font-extrabold tracking-widest uppercase hover:text-paper">Log out</button>
             </form>

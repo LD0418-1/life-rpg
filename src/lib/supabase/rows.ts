@@ -6,6 +6,7 @@ import type { LogEntry, Quest } from "@/lib/game/types";
 
 export interface LogEntryRow {
   id: string;
+  is_public?: boolean;
   source?: string;
   activity_slug: string | null;
   quest_id: string | null;
@@ -33,6 +34,7 @@ export interface QuestRow {
   xp_reward: number;
   gold_reward: number;
   is_boss: boolean;
+  is_public?: boolean;
   season_id?: string | null;
   quest_objectives?: ObjectiveRow[];
 }
@@ -41,20 +43,23 @@ export interface ProfileRow {
   display_name: string;
   /** Missing until 0004_depth.sql has been run. */
   theme?: string;
+  /** Missing until 0007_showcase_privacy.sql has been run. */
+  visibility?: unknown;
   title: string | null;
   bio: string | null;
   timezone: string;
   is_public: boolean;
 }
 
-export const ENTRY_COLUMNS = "id, source, activity_slug, quest_id, domain, units, difficulty, note, xp, gold, occurred_on";
+export const ENTRY_COLUMNS = "id, source, activity_slug, quest_id, domain, units, difficulty, note, xp, gold, occurred_on, is_public";
 
 export const QUEST_COLUMNS =
-  "id, kind, title, domain, xp_reward, gold_reward, is_boss, season_id, quest_objectives(id, title, done_at, position)";
+  "id, kind, title, domain, xp_reward, gold_reward, is_boss, season_id, is_public, quest_objectives(id, title, done_at, position)";
 
 export function toLogEntry(r: LogEntryRow): LogEntry {
   return {
     id: r.id,
+    isPublic: r.is_public ?? true,
     source: r.source,
     activitySlug: r.activity_slug,
     questId: r.quest_id,
@@ -81,6 +86,7 @@ export function toQuest(r: QuestRow, doneToday = false): Quest {
     goldReward: r.gold_reward,
     isBoss: r.is_boss,
     seasonId: r.season_id ?? null,
+    isPublic: r.is_public ?? true,
     objectives,
     doneToday,
   };

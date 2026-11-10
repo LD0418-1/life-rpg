@@ -26,6 +26,11 @@ const SAMPLE_GAPS = new Set([3, 10, 26, 27]);
 const SAMPLE_REST_DAYS_AGO = 3;
 
 export function buildSampleEntries(today: Date, days = 70): LogEntry[] {
+  return buildAllSampleEntries(today, days);
+}
+
+/** Every sample entry (the preview's Journal reads these). */
+export function buildAllSampleEntries(today: Date, days = 70): LogEntry[] {
   const rand = seeded(42);
   // How often each activity shows up on a given day.
   const habits: Record<string, number> = {
@@ -186,6 +191,7 @@ export function buildSampleWorld(now: Date): SampleWorld {
       rewards: sampleRewards,
       extrasReady: true,
       pendingImports: 5,
+      visibility: { sections: { quests: true, journal: true, streak: true, world: true, skills: true, trophies: true, seasons: true }, hiddenDomains: [] },
     },
   };
 }

@@ -6,12 +6,13 @@ import { currentSeason } from "@/lib/game/seasons";
 import type { Quest } from "@/lib/game/types";
 import { useGame } from "../GameProvider";
 import { NewQuestForm } from "../NewQuestForm";
+import { LockButton } from "../LockButton";
 import { QuestEditor } from "../QuestEditor";
 import { SeasonPanel } from "../SeasonPanel";
 import { PageHeader } from "./PageHeader";
 
 function QuestCard({ q }: { q: Quest }) {
-  const { data, canEdit, editing, setEditing, toggleObjective, abandonQuest, saveQuest, addObjective, removeObjective, setQuestSeason, isBusy, floatersFor } = useGame();
+  const { data, canEdit, editing, setEditing, toggleObjective, abandonQuest, saveQuest, addObjective, removeObjective, setQuestSeason, setQuestPublic, isBusy, floatersFor } = useGame();
   const season = currentSeason(data.seasons, data.today);
   const pinnedSeason = q.seasonId ? data.seasons.find((s) => s.id === q.seasonId) : null;
   const done = q.objectives.filter((o) => o.done).length;
@@ -56,6 +57,7 @@ function QuestCard({ q }: { q: Quest }) {
                   {q.seasonId === season.id ? "★" : "☆"}
                 </button>
               )}
+              <LockButton isPublic={q.isPublic !== false} onToggle={() => setQuestPublic(q, q.isPublic === false)} disabled={isBusy(`vis:${q.id}`)} what={q.title} />
               <button
                 onClick={() => setEditing(editing === q.id ? null : q.id)}
                 aria-label={`Edit ${q.title}`}

@@ -4,9 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { XpBar } from "@/components/ui/XpBar";
+import type { Section } from "@/lib/game/visibility";
 import { useGame } from "./GameProvider";
 
-type IconName = "today" | "inbox" | "quests" | "calendar" | "world" | "skills" | "trophies" | "shop" | "wallet" | "settings" | "more";
+type IconName = "today" | "inbox" | "journal" | "quests" | "calendar" | "world" | "skills" | "trophies" | "shop" | "wallet" | "settings" | "more";
 
 function Icon({ name }: { name: IconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "square" as const, strokeLinejoin: "miter" as const };
@@ -14,6 +15,7 @@ function Icon({ name }: { name: IconName }) {
     <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" aria-hidden>
       {name === "today" && <path {...common} d="M13 2 4 14h7l-1 8 9-12h-7z" />}
       {name === "quests" && <path {...common} d="M5 22V3h12l-2.5 4.5L17 12H5" />}
+      {name === "journal" && <path {...common} d="M5 3h12l2 2v16H5zM9 8h6M9 12h6M9 16h4" />}
       {name === "inbox" && <path {...common} d="M3 13l3-8h12l3 8v7H3zM3 13h5l1 3h6l1-3h5" />}
       {name === "calendar" && (
         <g {...common}>
@@ -61,7 +63,7 @@ interface NavItem {
 }
 
 /** Sidebar on big screens, bottom tab bar on phones. */
-export function AppShell({ children, accountActions }: { children: ReactNode; accountActions?: ReactNode }) {
+export function AppShell({ children, accountActions, notice }: { children: ReactNode; accountActions?: ReactNode; notice?: ReactNode }) {
   const { basePath, mode, canEdit, summary, data, progress, goldBalance } = useGame();
   const badge = (href: string) =>
     href === `${basePath}/inbox` && data.pendingImports > 0 ? (
@@ -71,23 +73,27 @@ export function AppShell({ children, accountActions }: { children: ReactNode; ac
     ) : null;
   const pathname = usePathname();
   const root = basePath || "/";
-  const all: (NavItem & { ownerOnly?: boolean; primary?: boolean })[] = [
-    { href: root, label: "Today", icon: "today", primary: true },
+  const isVisitor = mode === "visitor";
+  const shown = (section: Section) => !isVisitor || data.visibility.sections[section];
+  // primary = a main phone tab for you; visitorPrimary = a main phone tab for visitors.
+  const all: (NavItem & { ownerOnly?: boolean; primary?: boolean; visitorPrimary?: boolean; section?: Section })[] = [
+    { href: root, label: isVisitor ? "Profile" : "Today", icon: "today", primary: true, visitorPrimary: true },
     { href: `${basePath}/inbox`, label: "Inbox", icon: "inbox", ownerOnly: true },
-    { href: `${basePath}/quests`, label: "Quests", icon: "quests", primary: true },
+    { href: `${basePath}/quests`, label: "Quests", icon: "quests", primary: true, section: "quests" },
+    { href: `${basePath}/journal`, label: "Journal", icon: "journal", visitorPrimary: true, section: "journal" },
     { href: `${basePath}/calendar`, label: "Calendar", icon: "calendar", ownerOnly: true, primary: true },
-    { href: `${basePath}/world`, label: "World", icon: "world" },
-    { href: `${basePath}/skills`, label: "Skills", icon: "skills" },
-    { href: `${basePath}/trophies`, label: "Trophies", icon: "trophies" },
+    { href: `${basePath}/world`, label: "World", icon: "world", visitorPrimary: true, section: "world" },
+    { href: `${basePath}/skills`, label: "Skills", icon: "skills", section: "skills" },
+    { href: `${basePath}/trophies`, label: "Trophies", icon: "trophies", visitorPrimary: true, section: "trophies" },
     { href: `${basePath}/shop`, label: "Shop", icon: "shop", ownerOnly: true },
     { href: `${basePath}/wallet`, label: "Wallet", icon: "wallet", ownerOnly: true, primary: true },
   ];
-  const items: NavItem[] = all.filter((i) => canEdit || !i.ownerOnly);
+  const items = all.filter((i) => (canEdit || !i.ownerOnly) && (!i.section || shown(i.section)));
   const isActive = (href: string) => (href === root ? pathname === root : pathname.startsWith(href));
   const settingsHref = mode === "owner" ? "/settings" : null;
   // Phones: up to 5 tabs fit; with more, show the main ones plus a "More" sheet.
   const useMore = items.length > 5;
-  const phoneTabs = useMore ? all.filter((i) => i.primary && (canEdit || !i.ownerOnly)) : items;
+  const phoneTabs = useMore ? items.filter((i) => (isVisitor ? i.visitorPrimary : i.primary)) : items;
   const moreItems = useMore ? items.filter((i) => !phoneTabs.includes(i)) : [];
   const [moreOpen, setMoreOpen] = useState(false);
   useEffect(() => setMoreOpen(false), [pathname]);
@@ -101,9 +107,9 @@ export function AppShell({ children, accountActions }: { children: ReactNode; ac
 
   return (
     <div className="min-h-dvh lg:pl-60">
-      {mode === "preview" && (
+      {(mode === "preview" || notice) && (
         <div className="stripes sticky top-0 z-30 px-4 py-1.5 text-center font-label text-xs font-extrabold tracking-[0.12em] text-paper uppercase sm:text-sm sm:tracking-[0.2em]">
-          Preview · sample data · nothing is saved
+          {notice ?? "Preview · sample data · nothing is saved"}
         </div>
       )}
 
@@ -152,6 +158,12 @@ export function AppShell({ children, accountActions }: { children: ReactNode; ac
         </nav>
 
         <div className="space-y-1 border-t border-ink-3 px-3 py-4 font-label text-sm font-extrabold tracking-widest text-muted uppercase">
+          {mode === "owner" && (
+            <Link href="/showcase" className="flex items-center gap-3 px-5 py-2 hover:text-paper">
+              <Icon name="world" />
+              View as visitor
+            </Link>
+          )}
           {settingsHref && (
             <Link
               href={settingsHref}
@@ -191,7 +203,11 @@ export function AppShell({ children, accountActions }: { children: ReactNode; ac
             className="slash-panel absolute inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] border-l-4 border-crimson bg-ink-2 p-3"
           >
             <ul className="grid grid-cols-2 gap-2">
-              {[...moreItems, ...(settingsHref ? [{ href: settingsHref, label: "Settings", icon: "settings" as const }] : [])].map((item) => (
+              {[
+                ...moreItems,
+                ...(mode === "owner" ? [{ href: "/showcase", label: "Visitor view", icon: "world" as const }] : []),
+                ...(settingsHref ? [{ href: settingsHref, label: "Settings", icon: "settings" as const }] : []),
+              ].map((item) => (
                 <li key={item.href}>
                   <Link
                     href={item.href}

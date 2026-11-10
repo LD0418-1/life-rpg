@@ -19,6 +19,7 @@ import { regionFor, stageFor } from "@/lib/game/world";
 import { type CharacterSummary, addToTotals, detectLevelUp, summarizeTotals } from "@/lib/game/xp";
 import { LevelUpOverlay, type LevelUpEvent } from "./LevelUpOverlay";
 import { LogDialog } from "./LogDialog";
+import { ShareButton } from "./ShareButton";
 import { VictoryOverlay, type VictoryEvent } from "./VictoryOverlay";
 
 export type GameMode = "preview" | "owner" | "visitor";
@@ -80,7 +81,18 @@ export interface Game {
   approveImport: (item: ImportItem) => Promise<boolean>;
   /** Keeps the "waiting in your inbox" count in step. */
   adjustPendingImports: (delta: number) => void;
+  /** Lock / unlock a quest or log entry for visitors. */
+  setQuestPublic: (q: Quest, isPublic: boolean) => void;
+  setEntryPublic: (e: LogEntry, isPublic: boolean) => Promise<boolean>;
+  /** Link to a share card image. The preview uses sample values (?demo=1). */
+  cardHref: (card: CardRequest) => string;
 }
+
+export type CardRequest =
+  | { type: "profile" }
+  | { type: "level"; domain?: string; level?: number; scope?: string }
+  | { type: "boss"; questId: string; title?: string; xp?: number; gold?: number }
+  | { type: "season"; seasonId: string; name?: string; rank?: string; xp?: number; activeDays?: number; days?: number; goals?: string; levels?: string };
 
 const GameContext = createContext<Game | null>(null);
 
@@ -204,9 +216,11 @@ export function GameProvider({
     const key = Date.now() + Math.random();
     setFloaters((f) => [...f, { key, target, text: `+${entry.xp} XP` }]);
     setTimeout(() => setFloaters((f) => f.filter((x) => x.key !== key)), 1100);
-    const levelEvent = up ? { key, scope: up.scope === "overall" ? "Overall" : domainLabel(up.scope), level: up.level } : null;
+    const levelEvent = up
+      ? { key, scope: up.scope === "overall" ? "Overall" : domainLabel(up.scope), level: up.level, domain: up.scope === "overall" ? undefined : up.scope }
+      : null;
     if (bossDefeated) {
-      setVictory({ key, title: bossDefeated.title, xp: entry.xp, gold: entry.gold });
+      setVictory({ key, questId: bossDefeated.id, title: bossDefeated.title, xp: entry.xp, gold: entry.gold });
       pendingLevelUp.current = levelEvent; // shown after the victory screen
     } else if (levelEvent) {
       setLevelUp(levelEvent);
@@ -431,6 +445,53 @@ export function GameProvider({
         setData((d) => ({ ...d, pendingImports: Math.max(0, d.pendingImports - 1) }));
         return true as const;
       })) === true,
+    cardHref: (card) => {
+      const q = new URLSearchParams({ type: card.type });
+      if (mode === "preview") {
+        q.set("demo", "1");
+        q.set("name", data.displayName);
+        if (card.type === "profile") {
+          q.set("level", String(summary.overall.level));
+          q.set("xp", String(summary.overall.totalXp));
+          q.set("streak", String(progress.streak));
+          q.set("trophies", String(Object.keys(data.achievements.unlocked).length));
+        }
+        if (card.type === "level") {
+          q.set("level", String(card.level ?? summary.overall.level));
+          q.set("scope", card.scope ?? "Overall");
+        }
+        if (card.type === "boss") {
+          q.set("quest", card.title ?? "");
+          q.set("xp", String(card.xp ?? 0));
+          q.set("gold", String(card.gold ?? 0));
+        }
+        if (card.type === "season") {
+          for (const [k, v] of Object.entries({ season: card.name, rank: card.rank, xp: card.xp, active: card.activeDays, days: card.days, goals: card.goals, levels: card.levels })) {
+            if (v !== undefined) q.set(k, String(v));
+          }
+        }
+      } else {
+        if (card.type === "level" && card.domain) q.set("domain", card.domain);
+        if (card.type === "boss") q.set("id", card.questId);
+        if (card.type === "season") q.set("id", card.seasonId);
+      }
+      return `/api/card?${q.toString()}`;
+    },
+    setQuestPublic: (q, isPublic) =>
+      void act(`vis:${q.id}`, async () => {
+        await backend.setQuestPublic(q.id, isPublic);
+        setData((d) => ({
+          ...d,
+          quests: d.quests.map((x) => (x.id === q.id ? { ...x, isPublic } : x)),
+          dailies: d.dailies.map((x) => (x.id === q.id ? { ...x, isPublic } : x)),
+        }));
+      }),
+    setEntryPublic: async (e, isPublic) =>
+      (await act(`vis:${e.id}`, async () => {
+        await backend.setEntryPublic(e.id, isPublic);
+        setData((d) => ({ ...d, recent: d.recent.map((x) => (x.id === e.id ? { ...x, isPublic } : x)) }));
+        return true as const;
+      })) === true,
     adjustPendingImports: (delta) => setData((d) => ({ ...d, pendingImports: Math.max(0, d.pendingImports + delta) })),
     setQuestSeason: (q, seasonId) =>
       void act(`pin:${q.id}`, async () => {
@@ -449,6 +510,15 @@ export function GameProvider({
         {victory && (
           <VictoryOverlay
             event={victory}
+            share={
+              canEdit ? (
+                <ShareButton
+                  href={game.cardHref({ type: "boss", questId: victory.questId, title: victory.title, xp: victory.xp, gold: victory.gold })}
+                  filename="boss-defeated.png"
+                  title={`Boss defeated: ${victory.title}`}
+                />
+              ) : undefined
+            }
             onDone={() => {
               setVictory(null);
               if (pendingLevelUp.current) setLevelUp(pendingLevelUp.current);
@@ -456,7 +526,21 @@ export function GameProvider({
             }}
           />
         )}
-        {!victory && levelUp && <LevelUpOverlay event={levelUp} onDone={() => setLevelUp(null)} />}
+        {!victory && levelUp && (
+          <LevelUpOverlay
+            event={levelUp}
+            onDone={() => setLevelUp(null)}
+            share={
+              canEdit ? (
+                <ShareButton
+                  href={game.cardHref({ type: "level", domain: levelUp.domain, level: levelUp.level, scope: levelUp.scope })}
+                  filename="level-up.png"
+                  title={`Level up: ${levelUp.scope} level ${levelUp.level}`}
+                />
+              ) : undefined
+            }
+          />
+        )}
 
         {banner && !victory && (
           <div role="status" className="pointer-events-none fixed inset-x-0 top-[calc(1.5rem+env(safe-area-inset-top))] z-50 flex justify-center px-4">

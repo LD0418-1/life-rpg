@@ -11,6 +11,8 @@ A sidebar on big screens and a tab bar on phones link these sections:
 - `/world`: the world map. One region per domain, with buildings that grow in 6 stages as the domain levels up.
 - `/skills`: stats radar, level unlocks (color themes) and skill trees.
 - `/trophies`: achievements. Hidden ones show as "???" until earned.
+- `/journal`: a timeline by month or season, with level-ups, trophies, skills and season milestones. Lock any entry to keep it private.
+- `/showcase`: your public page exactly as a logged-out visitor sees it. Also linked as "View as visitor".
 - `/inbox` (owner only): imports from GitHub, Strava and Apple Health waiting for your approval, plus connection settings.
 - `/calendar` (owner only): your Google / Apple calendars (via their private iCal links), plus Life RPG days: XP, rest days, quests cleared, seasons.
 - `/shop` (owner only): the loot shop and your inventory, with shop purchases and custom quest rewards. "Use it" can log what it cost to the wallet.
@@ -67,6 +69,7 @@ supabase/migrations/
   0004_depth.sql              skill unlocks, loot shop purchases, color theme
   0005_rewards_wallet_calendar.sql  custom quest rewards, wallet, calendar links (all owner-only)
   0006_imports.sql            import inbox + connections, approve_import, ingest_health (Apple Health)
+  0007_showcase_privacy.sql   what visitors see: section switches, hidden domains (enforced in the database)
 ```
 
 ### The scoring rules (`src/config/xp.json`)
@@ -103,7 +106,7 @@ The style is an original high-contrast JRPG menu look: ink black, paper white an
 ## Setting up Supabase
 
 1. Create a project at supabase.com.
-2. In **SQL Editor**, run each file in `supabase/migrations/` in order: `0001_init.sql`, `0002_totals_and_rewards.sql`, `0003_streaks.sql`, `0004_depth.sql`, `0005_rewards_wallet_calendar.sql`, `0006_imports.sql`.
+2. In **SQL Editor**, run each file in `supabase/migrations/` in order: `0001_init.sql`, `0002_totals_and_rewards.sql`, `0003_streaks.sql`, `0004_depth.sql`, `0005_rewards_wallet_calendar.sql`, `0006_imports.sql`, `0007_showcase_privacy.sql`.
 3. In **Authentication → Users → Add user**, create your user and tick **Auto Confirm User**.
 4. In **Authentication → Sign In / Providers**, turn off **Allow new users to sign up**.
 5. Make yourself the owner by running this in the SQL Editor:
@@ -118,6 +121,11 @@ The style is an original high-contrast JRPG menu look: ink black, paper white an
 - **Android:** open it in **Chrome**, tap **⋮ → Install app** (or "Add to Home screen").
 
 It opens full screen with its own icon. Pages always load fresh from the network. If you're offline, you get an offline screen instead of an error. App files are cached by `public/sw.js`; bump `VERSION` there if you ever change how it caches.
+
+## Public page, privacy and share cards
+
+- **Privacy** (Settings → What visitors see): switch sections on or off (quests, journal, streak, world, skills, trophies, seasons) and hide whole domains. Lock single quests or entries with 🔒. Quests, skills, trophies, seasons, rest days, hidden domains and locked items are blocked by database rules (`0007_showcase_privacy.sql`), not just hidden on the page. The wallet, shop, gold, calendar, inbox and rewards are never visible to visitors.
+- **Share cards** (`/api/card?type=profile|level|boss|season`): PNG images drawn on the server from data the current viewer may see. Share buttons appear on the level-up and boss-victory screens, on seasons, in the Journal, and on your showcase. Your site link previews with your profile card (or a neutral "Coming soon" card while private).
 
 ## Imports (GitHub, Strava, Apple Health)
 

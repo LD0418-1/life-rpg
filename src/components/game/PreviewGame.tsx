@@ -21,7 +21,7 @@ import { buildStats } from "@/lib/game/stats";
 import { checkPlanRest, checkUnplanRest, computeProgress } from "@/lib/game/streaks";
 import type { LogEntry, Quest, SheetBackend } from "@/lib/game/types";
 import { addToTotals, scoreEntry } from "@/lib/game/xp";
-import { type SampleWorld, buildSampleEvents, buildSampleImports, buildSampleTxs, buildSampleWorld, sampleDailies } from "@/lib/sample-data";
+import { type SampleWorld, buildAllSampleEntries, buildSampleEvents, buildSampleImports, buildSampleTxs, buildSampleWorld, sampleDailies } from "@/lib/sample-data";
 import { type ImportItem, mapImport, newImportToken } from "@/lib/imports/core";
 import { normalizeFeedUrl } from "@/lib/calendar/ics";
 import { type FinanceSettings, type MoneyTx, monthRange, normalizeFinanceSettings, normalizeTx } from "@/lib/game/finance";
@@ -50,6 +50,10 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
   let importItems: ImportItem[] = buildSampleImports(today);
   let githubUser: string | null = "LD0418-1";
   let healthToken = false;
+  // Full history for the Journal (the sheet itself only carries the latest 10 entries).
+  const history = new Map<string, LogEntry>(buildAllSampleEntries(new Date()).map((e) => [e.id, e]));
+  for (const e of entries.values()) history.set(e.id, e);
+  const sampleTrophyDays = Object.entries(unlocked).map(([slug, at]) => ({ slug, day: at.slice(0, 10) }));
   /** A quest's custom reward goes into the inventory when it's finished. */
   const grantFor = (q: Quest): Purchase | null => {
     const reward = rewards[q.id];
@@ -281,6 +285,25 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
     async createHealthToken() {
       healthToken = true;
       return newImportToken();
+    },
+    async setQuestPublic(questId, isPublic) {
+      const q = quests.get(questId);
+      if (q) q.isPublic = isPublic;
+    },
+    async setEntryPublic(entryId, isPublic) {
+      for (const map of [entries, history]) {
+        const e = map.get(entryId);
+        if (e) map.set(entryId, { ...e, isPublic });
+      }
+    },
+    async loadJournal(fromDay, toDay) {
+      for (const e of entries.values()) history.set(e.id, e);
+      const inRange = (d: string) => d >= fromDay && d <= toDay;
+      return {
+        entries: [...history.values()].filter((e) => inRange(e.occurredOn)).reverse(),
+        trophies: sampleTrophyDays.filter((t) => inRange(t.day)),
+        skills: skills.filter((s) => s.unlockedAt && inRange(s.unlockedAt.slice(0, 10))).map((s) => ({ name: s.name, tree: s.tree, day: s.unlockedAt!.slice(0, 10) })),
+      };
     },
     async createSeason(input) {
       const clean = normalizeNewSeason(input, seasons, today);

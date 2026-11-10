@@ -9,6 +9,9 @@ import { createClient } from "@/lib/supabase/server";
 import { loadTotals } from "@/lib/data";
 import { THEMES, effectiveTheme } from "@/lib/game/themes";
 import { summarizeTotals } from "@/lib/game/xp";
+import { gameConfig } from "@/lib/game/config";
+import { SECTIONS, SECTION_INFO, parseVisibility } from "@/lib/game/visibility";
+import Link from "next/link";
 
 export const metadata: Metadata = { title: "Settings · Life RPG" };
 export const dynamic = "force-dynamic";
@@ -30,6 +33,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const level = summarizeTotals(totals).overall.level;
   const themesReady = typeof profile.theme === "string";
   const currentTheme = effectiveTheme(profile.theme, level).id;
+  const privacyReady = profile.visibility !== undefined;
+  const visibility = parseVisibility(profile.visibility);
   const { saved, error } = await searchParams;
 
   return (
@@ -80,11 +85,55 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <span>
               <span className="block font-label text-lg font-extrabold tracking-wider uppercase">Public profile</span>
               <span className="block text-sm text-muted">
-                When on, anyone with your site&apos;s link sees your level, stats, quests and log, read-only. Your gold
-                stays hidden. When off, visitors see &ldquo;Coming soon&rdquo;.
+                When on, anyone with your site&apos;s link sees your public page, read-only. Your wallet, shop, gold, calendar,
+                inbox and rewards are never shown. When off, visitors see &ldquo;Coming soon&rdquo;.
               </span>
             </span>
           </label>
+          <Link href="/showcase" className="mt-4 inline-block font-label text-sm font-extrabold tracking-widest text-volt uppercase hover:text-paper">
+            See your page as a visitor →
+          </Link>
+        </Panel>
+
+        <Panel title="What visitors see" kicker="When your profile is public">
+          {privacyReady ? (
+            <div className="space-y-6">
+              <input type="hidden" name="visibility_form" value="1" />
+              <fieldset>
+                <legend className="mb-2 font-label text-sm font-extrabold tracking-widest text-muted uppercase">Sections</legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {SECTIONS.map((sec) => (
+                    <label key={sec} className="flex cursor-pointer items-start gap-3">
+                      <input type="checkbox" name={`show_${sec}`} defaultChecked={visibility.sections[sec]} className="mt-1 h-4 w-4 accent-[var(--crimson)]" />
+                      <span>
+                        <span className="block font-label font-extrabold tracking-wider uppercase">{SECTION_INFO[sec].label}</span>
+                        <span className="block text-xs text-muted">{SECTION_INFO[sec].hint}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <fieldset>
+                <legend className="mb-2 font-label text-sm font-extrabold tracking-widest text-muted uppercase">Hide a whole domain</legend>
+                <div className="flex flex-wrap gap-x-6 gap-y-2">
+                  {gameConfig.domains.map((d) => (
+                    <label key={d.id} className="flex cursor-pointer items-center gap-2">
+                      <input type="checkbox" name={`hide_${d.id}`} defaultChecked={visibility.hiddenDomains.includes(d.id)} className="h-4 w-4 accent-[var(--crimson)]" />
+                      <span className="font-label font-extrabold tracking-wider uppercase">{d.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-muted">
+                  A hidden domain&apos;s entries, quests and skills disappear for visitors, and its XP isn&apos;t counted in what they see. You can also lock single quests or entries with the 🔒 button.
+                </p>
+              </fieldset>
+              <p className="text-xs text-muted">These rules are enforced by the database itself, so hidden things can&apos;t be read another way.</p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted">
+              Privacy controls need a one-time database update: run <code>supabase/migrations/0007_showcase_privacy.sql</code> in the Supabase SQL Editor.
+            </p>
+          )}
         </Panel>
 
         <Panel title="Theme" kicker="Unlocked by leveling up">

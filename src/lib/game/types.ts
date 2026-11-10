@@ -8,9 +8,12 @@ import type { NewSkillInput, Skill } from "./skills";
 import type { FinanceSettings, MoneyTx, NewTxInput } from "./finance";
 import type { CalEvent } from "../calendar/ics";
 import type { ImportItem, ImportSource } from "../imports/core";
+import type { Visibility } from "./visibility";
 
 export interface LogEntry {
   id: string;
+  /** False = only you see it. */
+  isPublic?: boolean;
   /** manual, quest, skill, ... */
   source?: string;
   activitySlug: string | null;
@@ -42,6 +45,8 @@ export interface Quest {
   bossHp?: number;
   objectives: QuestObjective[];
   completed?: boolean;
+  /** False = only you see it. */
+  isPublic?: boolean;
   /** The season this quest is a goal of, if any. */
   seasonId?: string | null;
   /** For dailies: done today? */
@@ -110,6 +115,17 @@ export interface SheetData {
   extrasReady: boolean;
   /** Owner only: imports waiting in the inbox. */
   pendingImports: number;
+  /** What visitors may see. */
+  visibility: Visibility;
+}
+
+/** One stretch of your journey for the Journal page. */
+export interface JournalData {
+  entries: LogEntry[];
+  /** Achievements unlocked in the range, by local day. */
+  trophies: { slug: string; day: string }[];
+  /** Skills unlocked in the range, by local day. */
+  skills: { name: string; tree: string; day: string }[];
 }
 
 export interface ImportConnections {
@@ -210,6 +226,10 @@ export interface SheetBackend {
   disconnectImport(source: ImportSource): Promise<void>;
   /** Makes a new token for the iPhone Shortcut (shown once). */
   createHealthToken(): Promise<string>;
+  setQuestPublic(questId: string, isPublic: boolean): Promise<void>;
+  setEntryPublic(entryId: string, isPublic: boolean): Promise<void>;
+  /** Your journey between two days (inclusive), as the current viewer may see it. */
+  loadJournal(fromDay: string, toDay: string): Promise<JournalData>;
   createSeason(input: NewSeasonInput): Promise<Season>;
   updateSeason(seasonId: string, edit: SeasonEdit): Promise<Season>;
   setQuestSeason(questId: string, seasonId: string | null): Promise<void>;

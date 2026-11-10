@@ -8,6 +8,7 @@ import { activityOf, domainGlyph, unitLabel } from "@/lib/game/format";
 import { currentSeason, seasonStats } from "@/lib/game/seasons";
 import { scoreEntry } from "@/lib/game/xp";
 import { useGame } from "../GameProvider";
+import { LockButton } from "../LockButton";
 import { QuestEditor } from "../QuestEditor";
 import { StreakPanel } from "../StreakPanel";
 
@@ -113,7 +114,7 @@ function QuickLog() {
 }
 
 function Dailies() {
-  const { data, canEdit, editing, setEditing, completeDaily, abandonQuest, saveQuest, isBusy, floatersFor, basePath } = useGame();
+  const { data, canEdit, editing, setEditing, completeDaily, abandonQuest, saveQuest, setQuestPublic, isBusy, floatersFor, basePath } = useGame();
   return (
     <Panel title="Dailies" kicker={data.today}>
       {data.dailies.length === 0 ? (
@@ -158,6 +159,7 @@ function Dailies() {
                 </button>
                 {canEdit && (
                   <>
+                    <LockButton isPublic={d.isPublic !== false} onToggle={() => setQuestPublic(d, d.isPublic === false)} disabled={isBusy(`vis:${d.id}`)} what={d.title} />
                     <button onClick={() => setEditing(d.id)} aria-label={`Edit ${d.title}`} className="px-1 text-muted opacity-60 hover:text-paper hover:opacity-100">
                       ✎
                     </button>
@@ -177,7 +179,7 @@ function Dailies() {
 }
 
 function RecentLog() {
-  const { data, canEdit, removeEntry, isBusy } = useGame();
+  const { data, canEdit, removeEntry, setEntryPublic, isBusy } = useGame();
   return (
     <Panel title="Log" kicker="Recent">
       {data.recent.length === 0 ? (
@@ -199,6 +201,7 @@ function RecentLog() {
                 </span>
                 <span className="font-label font-extrabold text-crimson tabular-nums">+{e.xp}</span>
                 <span className="w-12 text-right text-xs text-muted tabular-nums">{e.occurredOn === data.today ? "today" : e.occurredOn.slice(5)}</span>
+                {canEdit && <LockButton isPublic={e.isPublic !== false} onToggle={() => void setEntryPublic(e, e.isPublic === false)} disabled={isBusy(`vis:${e.id}`)} what={a?.name ?? "This entry"} />}
                 {canEdit && (
                   <button
                     onClick={() => window.confirm(`Delete this ${a?.name ?? "entry"} entry and its ${e.xp} XP?`) && removeEntry(e)}
