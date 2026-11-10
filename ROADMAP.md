@@ -60,12 +60,14 @@
 - [x] Navigation: 8 sections in the sidebar; phones get Today / Quests / Calendar / Wallet + a "More" sheet
 - [x] Run `0005_rewards_wallet_calendar.sql` on the live database
 
-## Phase 6: Automatic imports
-- [ ] GitHub commits → Craft
-- [ ] Strava → Body
-- [ ] Apple Health via iOS Shortcut
-- [ ] Calendar (optional)
-- [ ] Import inbox
+## Phase 6: Automatic imports ✅
+- [x] GitHub commits → Code (grouped per repo per day; follow-up items for commits after approval)
+- [x] Strava → Run / Workout (OAuth connect, refresh tokens, moving time)
+- [x] Apple Health via iOS Shortcut → Walk / Workout / Run / Meditate (token checked in the database, only its hash stored)
+- [x] Import inbox: approve, ignore, restore, approve all; XP uses the normal rules for that day
+- [x] Inbox badge in the sidebar / More sheet, banner on Today
+- [ ] ~~Calendar imports~~: skipped, the Calendar page already shows events, and counting meetings as XP would inflate stats
+- [ ] Run `0006_imports.sql` on the live database
 
 ## Phase 7: Public showcase and journal
 - [ ] Public profile page

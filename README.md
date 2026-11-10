@@ -11,6 +11,7 @@ A sidebar on big screens and a tab bar on phones link these sections:
 - `/world`: the world map. One region per domain, with buildings that grow in 6 stages as the domain levels up.
 - `/skills`: stats radar, level unlocks (color themes) and skill trees.
 - `/trophies`: achievements. Hidden ones show as "???" until earned.
+- `/inbox` (owner only): imports from GitHub, Strava and Apple Health waiting for your approval, plus connection settings.
 - `/calendar` (owner only): your Google / Apple calendars (via their private iCal links), plus Life RPG days: XP, rest days, quests cleared, seasons.
 - `/shop` (owner only): the loot shop and your inventory, with shop purchases and custom quest rewards. "Use it" can log what it cost to the wallet.
 - `/wallet` (owner only): income and spending by category and day, monthly budget, entries by month.
@@ -65,6 +66,7 @@ supabase/migrations/
   0003_streaks.sql            XP per day + planned rest days (for streaks and momentum)
   0004_depth.sql              skill unlocks, loot shop purchases, color theme
   0005_rewards_wallet_calendar.sql  custom quest rewards, wallet, calendar links (all owner-only)
+  0006_imports.sql            import inbox + connections, approve_import, ingest_health (Apple Health)
 ```
 
 ### The scoring rules (`src/config/xp.json`)
@@ -101,7 +103,7 @@ The style is an original high-contrast JRPG menu look: ink black, paper white an
 ## Setting up Supabase
 
 1. Create a project at supabase.com.
-2. In **SQL Editor**, run each file in `supabase/migrations/` in order: `0001_init.sql`, `0002_totals_and_rewards.sql`, `0003_streaks.sql`, `0004_depth.sql`, `0005_rewards_wallet_calendar.sql`.
+2. In **SQL Editor**, run each file in `supabase/migrations/` in order: `0001_init.sql`, `0002_totals_and_rewards.sql`, `0003_streaks.sql`, `0004_depth.sql`, `0005_rewards_wallet_calendar.sql`, `0006_imports.sql`.
 3. In **Authentication → Users → Add user**, create your user and tick **Auto Confirm User**.
 4. In **Authentication → Sign In / Providers**, turn off **Allow new users to sign up**.
 5. Make yourself the owner by running this in the SQL Editor:
@@ -116,6 +118,15 @@ The style is an original high-contrast JRPG menu look: ink black, paper white an
 - **Android:** open it in **Chrome**, tap **⋮ → Install app** (or "Add to Home screen").
 
 It opens full screen with its own icon. Pages always load fresh from the network. If you're offline, you get an offline screen instead of an error. App files are cached by `public/sw.js`; bump `VERSION` there if you ever change how it caches.
+
+## Imports (GitHub, Strava, Apple Health)
+
+Everything lands in the **Inbox** as pending. Nothing counts until you approve it, and the database blocks importing the same thing twice. The rules for turning imports into activities are in `xp.json` → `imports`.
+
+- **GitHub:** enter your username in Inbox → Connections. Commits are grouped per repo per day, each worth `minutesPerCommit` minutes of Code. Private repos are optional: create a fine-grained token (read-only, "Contents" and "Metadata") and add it in Vercel as `GITHUB_TOKEN`.
+- **Strava:** create an app at strava.com/settings/api, set its Authorization Callback Domain to your site's domain, add `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET` in Vercel, redeploy, then click **Connect Strava** in the Inbox.
+- **Apple Health:** Inbox → Apple Health → Set up shows a token (once) and step-by-step Shortcut instructions. The Shortcut POSTs `{ date, steps, workout_minutes, run_minutes, mindful_minutes }` to `/api/import/health` with `Authorization: Bearer <token>`. Only a sha-256 fingerprint of the token is stored.
+- Connected sources sync automatically when you open the Inbox, if the last sync was over 30 minutes ago, or whenever you press **Sync now**.
 
 ## Deploying on Vercel
 

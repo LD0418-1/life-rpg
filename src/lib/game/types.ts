@@ -7,6 +7,7 @@ import type { NewSeasonInput, Season, SeasonEdit, SeasonGoal } from "./seasons";
 import type { NewSkillInput, Skill } from "./skills";
 import type { FinanceSettings, MoneyTx, NewTxInput } from "./finance";
 import type { CalEvent } from "../calendar/ics";
+import type { ImportItem, ImportSource } from "../imports/core";
 
 export interface LogEntry {
   id: string;
@@ -107,6 +108,23 @@ export interface SheetData {
   rewards: Record<string, string>;
   /** False until the 0005 database script (rewards, wallet, calendar) has been run. */
   extrasReady: boolean;
+  /** Owner only: imports waiting in the inbox. */
+  pendingImports: number;
+}
+
+export interface ImportConnections {
+  github: { username: string | null; lastSyncedAt: string | null; hasToken: boolean };
+  strava: { configured: boolean; connected: boolean; athlete: string | null; lastSyncedAt: string | null };
+  health: { hasToken: boolean; lastSyncedAt: string | null };
+}
+
+export interface ImportsData {
+  /** False until the 0006 database script (imports) has been run. */
+  ready: boolean;
+  pending: ImportItem[];
+  /** The latest approved / ignored items. */
+  recent: ImportItem[];
+  connections: ImportConnections;
 }
 
 export interface AchievementSync {
@@ -182,6 +200,16 @@ export interface SheetBackend {
   loadCalendar(fromDay: string, toDay: string): Promise<CalendarData>;
   addFeed(input: { name: string; url: string; color: string }): Promise<CalendarFeed>;
   deleteFeed(feedId: string): Promise<void>;
+  loadImports(): Promise<ImportsData>;
+  /** Fetches new activity from connected sources (or just one). */
+  syncImports(source?: ImportSource): Promise<{ added: number; errors: string[] }>;
+  approveImport(itemId: string): Promise<LogEntry>;
+  ignoreImport(itemId: string): Promise<void>;
+  restoreImport(itemId: string): Promise<void>;
+  saveGithub(username: string | null): Promise<void>;
+  disconnectImport(source: ImportSource): Promise<void>;
+  /** Makes a new token for the iPhone Shortcut (shown once). */
+  createHealthToken(): Promise<string>;
   createSeason(input: NewSeasonInput): Promise<Season>;
   updateSeason(seasonId: string, edit: SeasonEdit): Promise<Season>;
   setQuestSeason(questId: string, seasonId: string | null): Promise<void>;

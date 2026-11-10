@@ -6,6 +6,7 @@ import { newlyEarned } from "./game/achievements";
 import type { LootItem, Purchase } from "./game/loot";
 import type { CalEvent } from "./calendar/ics";
 import type { MoneyTx } from "./game/finance";
+import type { ImportItem } from "./imports/core";
 import type { Season, SeasonGoal } from "./game/seasons";
 import type { Skill } from "./game/skills";
 import { buildStats } from "./game/stats";
@@ -184,6 +185,7 @@ export function buildSampleWorld(now: Date): SampleWorld {
       completedOn,
       rewards: sampleRewards,
       extrasReady: true,
+      pendingImports: 5,
     },
   };
 }
@@ -227,4 +229,18 @@ export function buildSampleEvents(today: string, timeZoneOffsetMinutes: number):
   events.push({ id: "trip", feedId: "feed-personal", title: "Weekend trip", location: null, allDay: true, start: addDays(today, 11), end: addDays(today, 14) });
   events.push({ id: "bday", feedId: "feed-personal", title: "Mom's birthday", location: null, allDay: true, start: addDays(today, 5), end: addDays(today, 6) });
   return { feeds, events: events.sort((a, b) => a.start.localeCompare(b.start)) };
+}
+
+/** A few imports waiting in the preview inbox. */
+export function buildSampleImports(today: string): ImportItem[] {
+  const item = (id: string, source: ImportItem["source"], kind: string, quantity: number, title: string, back: number): ImportItem => ({
+    id, source, externalId: `${source}-${id}`, kind, quantity, title, occurredOn: addDays(today, -back), details: {}, status: "pending",
+  });
+  return [
+    item("imp1", "github", "commits", 4, "4 commits to life-rpg", 0),
+    item("imp2", "health", "steps", 9240, "9240 steps", 1),
+    item("imp3", "strava", "Run", 31, "Morning Run · 31 min · 5.2 km", 1),
+    item("imp4", "github", "commits", 2, "2 commits to dotfiles", 2),
+    item("imp5", "health", "mindful", 12, "12 mindful min", 2),
+  ];
 }

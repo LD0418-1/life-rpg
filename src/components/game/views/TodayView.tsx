@@ -220,12 +220,22 @@ function RecentLog() {
 }
 
 export function TodayView() {
-  const { data, progress, canEdit, toggleRest, isBusy } = useGame();
+  const { data, progress, canEdit, toggleRest, isBusy, basePath } = useGame();
   return (
     <main className="mx-auto max-w-6xl px-4 pt-8">
       <Hero />
       <div className="grid grid-cols-[minmax(0,1fr)] gap-10 xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div className="space-y-10">
+          {canEdit && data.pendingImports > 0 && (
+            <Link
+              href={`${basePath}/inbox`}
+              className="skew-box flex items-center gap-3 bg-volt px-6 py-2 font-label font-extrabold tracking-wider text-ink uppercase hover:bg-paper"
+            >
+              <span className="font-display text-2xl">{data.pendingImports}</span>
+              <span className="flex-1">import{data.pendingImports === 1 ? "" : "s"} waiting in your inbox</span>
+              <span>Review →</span>
+            </Link>
+          )}
           {canEdit && <QuickLog />}
           <Dailies />
         </div>

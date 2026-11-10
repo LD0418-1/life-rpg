@@ -6,7 +6,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { XpBar } from "@/components/ui/XpBar";
 import { useGame } from "./GameProvider";
 
-type IconName = "today" | "quests" | "calendar" | "world" | "skills" | "trophies" | "shop" | "wallet" | "settings" | "more";
+type IconName = "today" | "inbox" | "quests" | "calendar" | "world" | "skills" | "trophies" | "shop" | "wallet" | "settings" | "more";
 
 function Icon({ name }: { name: IconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "square" as const, strokeLinejoin: "miter" as const };
@@ -14,6 +14,7 @@ function Icon({ name }: { name: IconName }) {
     <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" aria-hidden>
       {name === "today" && <path {...common} d="M13 2 4 14h7l-1 8 9-12h-7z" />}
       {name === "quests" && <path {...common} d="M5 22V3h12l-2.5 4.5L17 12H5" />}
+      {name === "inbox" && <path {...common} d="M3 13l3-8h12l3 8v7H3zM3 13h5l1 3h6l1-3h5" />}
       {name === "calendar" && (
         <g {...common}>
           <rect x="3" y="5" width="18" height="16" />
@@ -62,10 +63,17 @@ interface NavItem {
 /** Sidebar on big screens, bottom tab bar on phones. */
 export function AppShell({ children, accountActions }: { children: ReactNode; accountActions?: ReactNode }) {
   const { basePath, mode, canEdit, summary, data, progress, goldBalance } = useGame();
+  const badge = (href: string) =>
+    href === `${basePath}/inbox` && data.pendingImports > 0 ? (
+      <span className="ml-auto bg-volt px-1.5 font-display text-sm leading-tight text-ink" aria-label={`${data.pendingImports} waiting`}>
+        {data.pendingImports}
+      </span>
+    ) : null;
   const pathname = usePathname();
   const root = basePath || "/";
   const all: (NavItem & { ownerOnly?: boolean; primary?: boolean })[] = [
     { href: root, label: "Today", icon: "today", primary: true },
+    { href: `${basePath}/inbox`, label: "Inbox", icon: "inbox", ownerOnly: true },
     { href: `${basePath}/quests`, label: "Quests", icon: "quests", primary: true },
     { href: `${basePath}/calendar`, label: "Calendar", icon: "calendar", ownerOnly: true, primary: true },
     { href: `${basePath}/world`, label: "World", icon: "world" },
@@ -138,6 +146,7 @@ export function AppShell({ children, accountActions }: { children: ReactNode; ac
             >
               <Icon name={item.icon} />
               {item.label}
+              {badge(item.href)}
             </Link>
           ))}
         </nav>
@@ -193,6 +202,7 @@ export function AppShell({ children, accountActions }: { children: ReactNode; ac
                   >
                     <Icon name={item.icon} />
                     {item.label}
+                    {badge(item.href)}
                   </Link>
                 </li>
               ))}
@@ -233,8 +243,9 @@ export function AppShell({ children, accountActions }: { children: ReactNode; ac
               moreActive || moreOpen ? "text-paper" : "text-muted"
             }`}
           >
-            <span className={`skew-box px-2.5 py-1 ${moreActive ? "bg-crimson" : moreOpen ? "bg-ink-3" : ""}`}>
+            <span className={`relative skew-box px-2.5 py-1 ${moreActive ? "bg-crimson" : moreOpen ? "bg-ink-3" : ""}`}>
               <Icon name="more" />
+              {canEdit && data.pendingImports > 0 && <span aria-label="Imports waiting" className="absolute -top-0.5 right-0.5 h-2.5 w-2.5 rotate-45 bg-volt" />}
             </span>
             More
           </button>

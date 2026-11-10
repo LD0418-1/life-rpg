@@ -21,7 +21,8 @@ import { buildStats } from "@/lib/game/stats";
 import { checkPlanRest, checkUnplanRest, computeProgress } from "@/lib/game/streaks";
 import type { LogEntry, Quest, SheetBackend } from "@/lib/game/types";
 import { addToTotals, scoreEntry } from "@/lib/game/xp";
-import { type SampleWorld, buildSampleEvents, buildSampleTxs, buildSampleWorld, sampleDailies } from "@/lib/sample-data";
+import { type SampleWorld, buildSampleEvents, buildSampleImports, buildSampleTxs, buildSampleWorld, sampleDailies } from "@/lib/sample-data";
+import { type ImportItem, mapImport, newImportToken } from "@/lib/imports/core";
 import { normalizeFeedUrl } from "@/lib/calendar/ics";
 import { type FinanceSettings, type MoneyTx, monthRange, normalizeFinanceSettings, normalizeTx } from "@/lib/game/finance";
 import { AppShell } from "./AppShell";
@@ -46,6 +47,9 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
   const offset = new Date().getTimezoneOffset(); // sample events at local clock times
   const cal = buildSampleEvents(today, offset);
   let feeds = cal.feeds;
+  let importItems: ImportItem[] = buildSampleImports(today);
+  let githubUser: string | null = "LD0418-1";
+  let healthToken = false;
   /** A quest's custom reward goes into the inventory when it's finished. */
   const grantFor = (q: Quest): Purchase | null => {
     const reward = rewards[q.id];
@@ -234,6 +238,49 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
     },
     async deleteFeed(feedId) {
       feeds = feeds.filter((f) => f.id !== feedId);
+    },
+    async loadImports() {
+      return {
+        ready: true,
+        pending: importItems.filter((i) => i.status === "pending"),
+        recent: importItems.filter((i) => i.status !== "pending").slice(0, 20),
+        connections: {
+          github: { username: githubUser, lastSyncedAt: githubUser ? new Date().toISOString() : null, hasToken: false },
+          strava: { configured: false, connected: false, athlete: null, lastSyncedAt: null },
+          health: { hasToken: healthToken, lastSyncedAt: null },
+        },
+      };
+    },
+    async syncImports() {
+      return { added: 0, errors: [] };
+    },
+    async approveImport(itemId) {
+      const it = importItems.find((i) => i.id === itemId);
+      if (!it || it.status !== "pending") throw new Error("That import was already handled.");
+      const { activity, units } = mapImport(it);
+      const repeatIndex = [...entries.values()].filter((e) => e.activitySlug === activity.slug && e.occurredOn === it.occurredOn).length;
+      const momentum = computeProgress(days(), restDays, it.occurredOn).xpMultiplier;
+      const score = scoreEntry(activity, { units, difficulty: 3, repeatIndex, momentumMultiplier: momentum });
+      it.status = "approved";
+      counts.activityEntries++;
+      return record({ id: id(), source: it.source, activitySlug: activity.slug, domain: activity.domain, units, difficulty: 3, xp: score.xp, gold: score.gold, occurredOn: it.occurredOn, note: it.title });
+    },
+    async ignoreImport(itemId) {
+      importItems = importItems.map((i) => (i.id === itemId && i.status === "pending" ? { ...i, status: "ignored" } : i));
+    },
+    async restoreImport(itemId) {
+      importItems = importItems.map((i) => (i.id === itemId && i.status === "ignored" ? { ...i, status: "pending" } : i));
+    },
+    async saveGithub(username) {
+      githubUser = username?.trim() || null;
+    },
+    async disconnectImport(source) {
+      if (source === "github") githubUser = null;
+      if (source === "health") healthToken = false;
+    },
+    async createHealthToken() {
+      healthToken = true;
+      return newImportToken();
     },
     async createSeason(input) {
       const clean = normalizeNewSeason(input, seasons, today);

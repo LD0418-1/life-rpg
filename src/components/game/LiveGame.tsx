@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo } from "react";
 import * as actions from "@/app/actions";
 import * as calendar from "@/app/calendar-actions";
+import * as imports from "@/app/import-actions";
 import * as wallet from "@/app/wallet-actions";
 import type { ActionResult } from "@/app/actions";
 import type { SheetBackend, SheetData } from "@/lib/game/types";
@@ -49,6 +50,14 @@ export function LiveGame({ initial, isOwner, children }: { initial: SheetData; i
       loadCalendar: (fromDay, toDay) => unwrap(calendar.loadCalendarAction(fromDay, toDay)),
       addFeed: (input) => unwrap(calendar.addFeedAction(input)),
       deleteFeed: (feedId) => unwrap(calendar.deleteFeedAction(feedId)),
+      loadImports: () => unwrap(imports.loadImportsAction()),
+      syncImports: (source) => unwrap(imports.syncImportsAction(source)),
+      approveImport: (itemId) => unwrap(imports.approveImportAction(itemId)),
+      ignoreImport: (itemId) => unwrap(imports.ignoreImportAction(itemId)),
+      restoreImport: (itemId) => unwrap(imports.restoreImportAction(itemId)),
+      saveGithub: (username) => unwrap(imports.saveGithubAction(username)),
+      disconnectImport: (source) => unwrap(imports.disconnectImportAction(source)),
+      createHealthToken: () => unwrap(imports.createHealthTokenAction()),
       syncAchievements: () => unwrap(actions.syncAchievementsAction()),
       createSeason: (input) => unwrap(actions.createSeasonAction(input)),
       updateSeason: (seasonId, edit) => unwrap(actions.updateSeasonAction(seasonId, edit)),

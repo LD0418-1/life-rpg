@@ -47,6 +47,11 @@ export interface GameConfig {
     planAheadDays: number;
   };
   momentum: { gainPerActiveDay: number; missDecay: number; maxXpBonus: number };
+  imports: {
+    github: { activity: string; minutesPerCommit: number };
+    strava: { runSports: string[]; runActivity: string; otherActivity: string };
+    health: Record<"steps" | "workout" | "run" | "mindful", string>;
+  };
   activities: Activity[];
 }
 
@@ -88,6 +93,11 @@ export function validateConfig(config: GameConfig): GameConfig {
     if (a.baseXp < 0 || a.xpPerUnit < 0) errors.push(`activity "${a.slug}" has negative XP`);
     if (!(a.maxUnits > 0)) errors.push(`activity "${a.slug}" maxUnits must be > 0`);
   }
+
+  const im = config.imports;
+  const mapped = [im.github.activity, im.strava.runActivity, im.strava.otherActivity, ...Object.values(im.health)];
+  for (const slug of mapped) if (!slugs.has(slug)) errors.push(`imports refer to unknown activity "${slug}"`);
+  if (!(im.github.minutesPerCommit > 0)) errors.push("imports.github.minutesPerCommit must be > 0");
 
   if (errors.length) throw new Error(`Invalid xp.json:\n- ${errors.join("\n- ")}`);
   return config;

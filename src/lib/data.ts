@@ -25,6 +25,12 @@ import type { SeasonGoal } from "@/lib/game/seasons";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingRelation, loadStreakData } from "@/lib/supabase/streak-data";
 
+/** How many imports are waiting in the inbox (0 if imports aren't set up yet). */
+async function countPendingImports(supabase: Supabase): Promise<number> {
+  const { count, error } = await supabase.from("import_items").select("id", { count: "exact", head: true }).eq("status", "pending");
+  return error ? 0 : (count ?? 0);
+}
+
 /** Custom quest rewards (owner only). `ready` is false until 0005 has been run. */
 async function loadRewards(supabase: Supabase): Promise<{ ready: boolean; rewards: Record<string, string> }> {
   const { data, error } = await supabase.from("quest_rewards").select("quest_id, reward");
@@ -69,7 +75,7 @@ export async function loadSheet(): Promise<SheetResult> {
   if (!profile || (!isOwner && !profile.is_public)) return { kind: "private", signedIn: Boolean(user) };
 
   const today = dayInTimeZone(new Date(), profile.timezone);
-  const [streakData, totals, recentRes, todayRes, questsRes, doneRes, skills, unlocked, shop, goldSpent, seasonsRes, closedGoalsRes, completedRes, rewardData] =
+  const [streakData, totals, recentRes, todayRes, questsRes, doneRes, skills, unlocked, shop, goldSpent, seasonsRes, closedGoalsRes, completedRes, rewardData, pendingImports] =
     await Promise.all([
     loadStreakData(supabase),
     loadTotals(supabase),
@@ -85,6 +91,7 @@ export async function loadSheet(): Promise<SheetResult> {
     supabase.from("quests").select("id, title, season_id, status").not("season_id", "is", null).neq("status", "active"),
     supabase.from("quests").select("completed_at").eq("status", "completed").neq("kind", "daily"),
     isOwner ? loadRewards(supabase) : Promise.resolve({ ready: true, rewards: {} }),
+    isOwner ? countPendingImports(supabase) : Promise.resolve(0),
   ]);
   for (const res of [recentRes, todayRes, questsRes, doneRes, seasonsRes, closedGoalsRes, completedRes]) {
     if (res.error) throw new Error(`Could not load your data: ${res.error.message}`);
@@ -133,6 +140,7 @@ export async function loadSheet(): Promise<SheetResult> {
         .map((q) => dayInTimeZone(new Date(q.completed_at as string), profile.timezone)),
       rewards: rewardData.rewards,
       extrasReady: rewardData.ready,
+      pendingImports,
     },
   };
 }

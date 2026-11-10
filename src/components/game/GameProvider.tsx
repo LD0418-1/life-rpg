@@ -10,6 +10,7 @@ import { type Activity, gameConfig } from "@/lib/game/config";
 import { activityOf, addDayXp, domainLabel } from "@/lib/game/format";
 import type { LootItem, NewLootInput, Purchase } from "@/lib/game/loot";
 import type { NewSeasonInput, Season, SeasonEdit } from "@/lib/game/seasons";
+import type { ImportItem } from "@/lib/imports/core";
 import type { NewSkillInput, Skill } from "@/lib/game/skills";
 import { type Progress, computeProgress } from "@/lib/game/streaks";
 import { effectiveTheme, themeStyle } from "@/lib/game/themes";
@@ -75,6 +76,10 @@ export interface Game {
   createSeason: (input: NewSeasonInput) => Promise<boolean>;
   updateSeason: (season: Season, edit: SeasonEdit) => Promise<boolean>;
   setQuestSeason: (q: Quest, seasonId: string | null) => void;
+  /** Approves an inbox item: writes the XP and celebrates like a normal log. */
+  approveImport: (item: ImportItem) => Promise<boolean>;
+  /** Keeps the "waiting in your inbox" count in step. */
+  adjustPendingImports: (delta: number) => void;
 }
 
 const GameContext = createContext<Game | null>(null);
@@ -419,6 +424,14 @@ export function GameProvider({
         setData((d) => ({ ...d, seasons: d.seasons.map((x) => (x.id === season.id ? updated : x)) }));
         return true as const;
       })) === true,
+    approveImport: async (item) =>
+      (await act(`import:${item.id}`, async () => {
+        const entry = await backend.approveImport(item.id);
+        applyEntry(entry, item.id);
+        setData((d) => ({ ...d, pendingImports: Math.max(0, d.pendingImports - 1) }));
+        return true as const;
+      })) === true,
+    adjustPendingImports: (delta) => setData((d) => ({ ...d, pendingImports: Math.max(0, d.pendingImports + delta) })),
     setQuestSeason: (q, seasonId) =>
       void act(`pin:${q.id}`, async () => {
         await backend.setQuestSeason(q.id, seasonId);
