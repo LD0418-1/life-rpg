@@ -67,7 +67,7 @@
 - [x] Import inbox: approve, ignore, restore, approve all; XP uses the normal rules for that day
 - [x] Inbox badge in the sidebar / More sheet, banner on Today
 - [ ] ~~Calendar imports~~: skipped, the Calendar page already shows events, and counting meetings as XP would inflate stats
-- [ ] Run `0006_imports.sql` on the live database
+- [x] Run `0006_imports.sql` on the live database
 
 ## Phase 7: Public showcase and journal
 - [ ] Public profile page
