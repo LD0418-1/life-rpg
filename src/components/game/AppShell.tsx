@@ -118,7 +118,7 @@ export function AppShell({ children, accountActions, notice }: { children: React
 
       {/* ---------- Sidebar (big screens) ---------- */}
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r-4 border-crimson bg-ink-2 lg:flex">
-        <div className="px-5 pt-6 pb-5">
+        <div className="shrink-0 px-5 pt-6 pb-5">
           <Link href={root} className="group flex items-end gap-3">
             <span className="halftone-red skew-box -rotate-3 px-3 pt-1 font-display text-4xl leading-tight text-paper shadow-[4px_4px_0_var(--paper)]">
               {summary.overall.level}
@@ -143,7 +143,7 @@ export function AppShell({ children, accountActions, notice }: { children: React
           </div>
         </div>
 
-        <nav aria-label="Main" className="flex-1 space-y-1 px-3">
+        <nav aria-label="Main" className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-1 [scrollbar-color:var(--ink-3)_transparent] [scrollbar-width:thin]">
           {items.map((item) => (
             <Link
               key={item.href}
@@ -160,7 +160,7 @@ export function AppShell({ children, accountActions, notice }: { children: React
           ))}
         </nav>
 
-        <div className="space-y-1 border-t border-ink-3 px-3 py-4 font-label text-sm font-extrabold tracking-widest text-muted uppercase">
+        <div className="shrink-0 space-y-1 border-t border-ink-3 px-3 py-4 font-label text-sm font-extrabold tracking-widest text-muted uppercase">
           {mode === "owner" && (
             <Link href="/showcase" className="flex items-center gap-3 px-5 py-2 hover:text-paper">
               <Icon name="world" />
