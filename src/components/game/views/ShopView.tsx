@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useState } from "react";
 import { Panel } from "@/components/ui/Panel";
 import { SlashButton } from "@/components/ui/SlashButton";
@@ -161,9 +162,9 @@ export function ShopView() {
       <div className="grid grid-cols-[minmax(0,1fr)] gap-10 xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <Panel title="Rewards" kicker="Real treats, real gold">
           {items.length === 0 ? (
-            <p className="text-sm text-muted">
-              Nothing in the shop yet. Add rewards you actually want (a fancy coffee, a movie night, new headphones) and price them in gold.
-            </p>
+            <EmptyState glyph="◆" title="The shop is empty">
+              Add rewards you actually want (a fancy coffee, a movie night, new headphones) and price them in gold.
+            </EmptyState>
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2">
               {items.map((item) => {
@@ -173,7 +174,7 @@ export function ShopView() {
                   <li key={item.id} className="slash-panel flex flex-col bg-ink-3 p-4">
                     <div className="flex items-start gap-2">
                       <h3 className="flex-1 font-display text-xl leading-tight uppercase">{item.name}</h3>
-                      <button onClick={() => archiveLoot(item)} aria-label={`Remove ${item.name} from the shop`} className="px-1 text-muted hover:text-crimson">
+                      <button onClick={() => archiveLoot(item)} aria-label={`Remove ${item.name} from the shop`} className="px-1 text-muted hover:text-crimson-text">
                         ×
                       </button>
                     </div>
@@ -195,7 +196,7 @@ export function ShopView() {
           <NewRewardForm />
           <Panel title="Inventory" kicker="Bought, not used yet">
             {unused.length === 0 ? (
-              <p className="text-sm text-muted">Nothing waiting. Buy something you&apos;ve earned!</p>
+              <EmptyState glyph="◈" title="Nothing waiting">Buy something you&apos;ve earned, or finish a quest with a reward.</EmptyState>
             ) : (
               <ul className="divide-y divide-ink-3">
                 {unused.map((p) => (

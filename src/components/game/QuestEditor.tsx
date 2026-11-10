@@ -88,7 +88,7 @@ export function QuestEditor({
                   <span className={`h-3 w-3 shrink-0 rotate-45 ${o.done ? "bg-crimson" : "border border-muted"}`} />
                   <span className={`flex-1 ${o.done ? "text-muted line-through" : ""}`}>{o.title}</span>
                   {removable && (
-                    <button type="button" onClick={() => onRemoveObjective(o.id)} aria-label={`Remove objective ${o.title}`} className="px-2 text-muted hover:text-crimson">
+                    <button type="button" onClick={() => onRemoveObjective(o.id)} aria-label={`Remove objective ${o.title}`} className="px-2 text-muted hover:text-crimson-text">
                       ×
                     </button>
                   )}

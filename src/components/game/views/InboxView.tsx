@@ -70,7 +70,7 @@ function GithubCard({ data, onChange }: { data: ImportsData["connections"]["gith
         {data.hasToken ? "Private repos included." : "Public repos only. To include private ones, add a read-only GITHUB_TOKEN in Vercel."}
       </p>
       {data.username && (
-        <button onClick={() => void save(null)} className="mt-1 font-label text-xs font-extrabold tracking-widest text-muted uppercase hover:text-crimson">
+        <button onClick={() => void save(null)} className="mt-1 font-label text-xs font-extrabold tracking-widest text-muted uppercase hover:text-crimson-text">
           Disconnect
         </button>
       )}
@@ -90,7 +90,7 @@ function StravaCard({ data, onChange }: { data: ImportsData["connections"]["stra
           <p className="text-xs text-muted">Last synced {ago(data.lastSyncedAt)}. Runs count as Run, other sports as Workout, using moving time.</p>
           <button
             onClick={() => window.confirm("Disconnect Strava? Already-imported items stay.") && backend.disconnectImport("strava").then(onChange)}
-            className="mt-1 font-label text-xs font-extrabold tracking-widest text-muted uppercase hover:text-crimson"
+            className="mt-1 font-label text-xs font-extrabold tracking-widest text-muted uppercase hover:text-crimson-text"
           >
             Disconnect
           </button>

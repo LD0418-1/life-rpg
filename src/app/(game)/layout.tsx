@@ -24,7 +24,7 @@ export default async function GameLayout({ children }: { children: ReactNode }) 
   return (
     <main className="grid min-h-dvh place-items-center px-4">
       <div className="text-center">
-        <p className="font-label text-base font-semibold tracking-[0.3em] text-crimson uppercase">Life RPG</p>
+        <p className="font-label text-base font-semibold tracking-[0.3em] text-crimson-text uppercase">Life RPG</p>
         <h1 className="mt-2 -rotate-2 font-display text-6xl uppercase sm:text-8xl">
           Coming <span className="bg-paper px-2 text-ink">soon</span>
         </h1>

@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { AppearanceSync } from "@/components/AppearanceSync";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
+import { APPEARANCE_BOOT_SCRIPT } from "@/lib/appearance-script";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,10 +23,15 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    // suppressHydrationWarning: the theme script below may set data-theme before React loads.
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT_SCRIPT }} />
+      </head>
       <body className="antialiased">
         {children}
         <RegisterServiceWorker />
+        <AppearanceSync />
       </body>
     </html>
   );

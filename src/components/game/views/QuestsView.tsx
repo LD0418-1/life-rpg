@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Panel } from "@/components/ui/Panel";
 import { XpBar } from "@/components/ui/XpBar";
 import { currentSeason } from "@/lib/game/seasons";
@@ -66,7 +67,7 @@ function QuestCard({ q }: { q: Quest }) {
               >
                 ✎
               </button>
-              <button onClick={() => abandonQuest(q)} aria-label={`Abandon ${q.title}`} className="px-1 text-muted opacity-60 hover:text-crimson hover:opacity-100">
+              <button onClick={() => abandonQuest(q)} aria-label={`Abandon ${q.title}`} className="px-1 text-muted opacity-60 hover:text-crimson-text hover:opacity-100">
                 ×
               </button>
             </>
@@ -126,7 +127,7 @@ function QuestCard({ q }: { q: Quest }) {
 function QuestGroup({ title, kicker, quests, empty }: { title: string; kicker: string; quests: Quest[]; empty: string }) {
   return (
     <Panel title={title} kicker={kicker}>
-      {quests.length === 0 ? <p className="py-2 text-sm text-muted">{empty}</p> : <div className="space-y-6">{quests.map((q) => <QuestCard key={q.id} q={q} />)}</div>}
+      {quests.length === 0 ? <EmptyState glyph="⚑" title={empty} /> : <div className="space-y-6">{quests.map((q) => <QuestCard key={q.id} q={q} />)}</div>}
     </Panel>
   );
 }

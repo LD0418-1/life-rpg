@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 // so it renders only in the browser (avoids server/browser date mismatches).
 const PreviewGame = dynamic(() => import("./PreviewGame"), {
   ssr: false,
-  loading: () => <div className="grid min-h-dvh place-items-center font-display text-4xl text-crimson uppercase">Loading…</div>,
+  loading: () => <div className="grid min-h-dvh place-items-center font-display text-4xl text-crimson-text uppercase">Loading…</div>,
 });
 
 export function PreviewLoader({ children }: { children: ReactNode }) {

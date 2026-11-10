@@ -12,6 +12,7 @@ import { summarizeTotals } from "@/lib/game/xp";
 import { gameConfig } from "@/lib/game/config";
 import { SECTIONS, SECTION_INFO, parseVisibility } from "@/lib/game/visibility";
 import Link from "next/link";
+import { PrefsPanel } from "@/components/PrefsControls";
 
 export const metadata: Metadata = { title: "Settings · Life RPG" };
 export const dynamic = "force-dynamic";
@@ -50,7 +51,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       )}
       {error && (
         <p role="alert" className="skew-box mb-6 bg-paper px-6 py-2 text-sm text-ink">
-          <span className="mr-2 font-label font-extrabold tracking-wider text-crimson uppercase">Error</span>
+          <span className="mr-2 font-label font-extrabold tracking-wider text-crimson-text uppercase">Error</span>
           {error}
         </p>
       )}
@@ -180,6 +181,31 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
         <SlashButton type="submit" className="w-full">Save settings</SlashButton>
       </form>
+
+      <div className="mt-12 space-y-10">
+        <Panel title="This device" kicker="Saved right away">
+          <PrefsPanel />
+        </Panel>
+
+        <Panel title="Backup" kicker="Your data, your copy">
+          <p className="mb-4 text-sm text-muted">
+            Download everything you&apos;ve saved: your log, quests, skills, seasons, trophies, shop, wallet, diary, recaps and settings. Secret links and
+            tokens (calendar links, Strava and GitHub tokens) are left out.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <a href="/api/export" className="skew-box bg-crimson px-5 py-2 font-label text-lg font-extrabold tracking-wider text-paper uppercase hover:bg-paper hover:text-ink">
+              Full backup (JSON)
+            </a>
+            <a href="/api/export?format=csv" className="skew-box bg-ink-3 px-5 py-2 font-label text-lg font-extrabold tracking-wider uppercase hover:bg-crimson">
+              Log as spreadsheet (CSV)
+            </a>
+            <a href="/api/export?format=diary" className="skew-box bg-ink-3 px-5 py-2 font-label text-lg font-extrabold tracking-wider uppercase hover:bg-crimson">
+              Diary as text
+            </a>
+          </div>
+          <p className="mt-3 text-xs text-muted">Keep backups somewhere private: they include your private entries and diary.</p>
+        </Panel>
+      </div>
     </main>
   );
 }

@@ -8,7 +8,7 @@
 /*
   Design tokens. Every color in the app comes from here, so a theme change is
   one edit. Style: high-contrast ink / paper / crimson, slashed angles,
-  halftone texture. Light theme comes in Phase 9.
+  halftone texture. The light theme (further down) swaps ink and paper.
 */
 :root {
   --ink: #0b0b0d;        /* page background */
@@ -16,9 +16,46 @@
   --ink-3: #26262c;      /* raised / tracks */
   --paper: #f5f2ea;      /* primary text, white panels */
   --muted: #a7a3ab;      /* secondary text */
-  --crimson: #e3172f;    /* brand accent */
+  --crimson: #d31329;    /* brand accent (white text on it passes 4.5:1) */
   --crimson-deep: #8f0d1d;
   --volt: #ffd60a;       /* gold, level-ups */
+  --volt-text: var(--volt); /* gold used as text (darker in the light theme) */
+  --on-accent: var(--paper); /* text on crimson */
+  --text-mix: #ffffff;
+}
+
+/*
+  Light theme, chosen per device (sidebar or Settings): data-theme="light", or
+  "auto" to follow the device. Ink and paper swap places, so "inverted" boxes
+  (paper on ink) stay inverted. A few things need a fixed color instead (below).
+*/
+:root[data-theme="light"] {
+  --ink: #efeae0;
+  --ink-2: #fbf9f4;
+  --ink-3: #dcd6ca;
+  --paper: #121216;
+  --muted: #5b5760;
+  --crimson: #d4122a;
+  --crimson-deep: #9c0e20;
+  --volt: #ffcf00;
+  --volt-text: #6b4b00;
+  --on-accent: #fbf9f4;
+  --text-mix: #000000;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-theme="auto"] {
+    --ink: #efeae0;
+    --ink-2: #fbf9f4;
+    --ink-3: #dcd6ca;
+    --paper: #121216;
+    --muted: #5b5760;
+    --crimson: #d4122a;
+    --crimson-deep: #9c0e20;
+    --volt: #ffcf00;
+    --volt-text: #6b4b00;
+    --on-accent: #fbf9f4;
+    --text-mix: #000000;
+  }
 }
 
 @theme inline {
@@ -29,6 +66,8 @@
   --color-muted: var(--muted);
   --color-crimson: var(--crimson);
   --color-crimson-deep: var(--crimson-deep);
+  /* Crimson for small text: a bit lighter on dark (darker on light) so it's easy to read. Follows the level theme. */
+  --color-crimson-text: color-mix(in srgb, var(--crimson) 72%, var(--text-mix));
   --color-volt: var(--volt);
   --font-display: "Anton", Impact, sans-serif;
   --font-label: "Barlow Condensed", "Arial Narrow", sans-serif;
@@ -38,6 +77,39 @@
 html {
   background: var(--ink);
   color-scheme: dark;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-theme="auto"] {
+    color-scheme: light;
+  }
+}
+
+/*
+  Fixed colors that don't swap (outside Tailwind's layers, so they win):
+  gold text stays readable, text on yellow stays dark, text on red stays light.
+*/
+:root[data-theme="light"] .text-volt:not(:hover) {
+  color: var(--volt-text);
+}
+:root[data-theme="light"] .bg-volt:not(:hover) {
+  color: #0b0b0d;
+}
+:root[data-theme="light"] :is(.bg-crimson, .halftone-red, .stripes) {
+  color: var(--on-accent);
+}
+@media (prefers-color-scheme: light) {
+  :root[data-theme="auto"] .text-volt:not(:hover) {
+    color: var(--volt-text);
+  }
+  :root[data-theme="auto"] .bg-volt:not(:hover) {
+    color: #0b0b0d;
+  }
+  :root[data-theme="auto"] :is(.bg-crimson, .halftone-red, .stripes) {
+    color: var(--on-accent);
+  }
 }
 
 body {
@@ -113,11 +185,38 @@ body {
 .anim-stamp { animation: stamp 0.45s 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }
 .anim-fade-out { animation: fade-out 0.35s 1.9s ease-in forwards; }
 
+/* Each page slides in a little when you switch sections. */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.anim-page { animation: page-in 0.28s cubic-bezier(0.2, 0.9, 0.2, 1) both; }
+
+/* A quick shake for "no" (errors). */
+@keyframes shake {
+  0%, 100% { transform: none; }
+  25% { transform: translateX(-6px) rotate(-1deg); }
+  75% { transform: translateX(6px) rotate(1deg); }
+}
+.anim-shake { animation: shake 0.3s ease-in-out; }
+
+/* Pop for a tapped quick-log button. */
+@keyframes pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.08) rotate(-2deg); }
+  100% { transform: scale(1); }
+}
+.anim-pop { animation: pop 0.25s ease-out; }
+
+/* "Reduce motion" in the device settings: no movement, everything appears at once. */
 @media (prefers-reduced-motion: reduce) {
-  .anim-float-up,
-  .anim-slash-in,
-  .anim-stamp {
-    animation-duration: 0.01s;
-    animation-delay: 0s;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

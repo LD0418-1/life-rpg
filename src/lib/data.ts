@@ -114,8 +114,10 @@ export async function loadSheet(options: { asVisitor?: boolean } = {}): Promise<
   }
 
   // Achievements: the owner's page load also records anything newly earned.
-  const stats = await loadAchievementStats(supabase, { today, totals, streak: streakData, skills, activities: activityData.activities });
-  const recapDue = isOwner && activityData.ready ? await isRecapDue(supabase, today, streakData.days) : false;
+  const [stats, recapDue] = await Promise.all([
+    loadAchievementStats(supabase, { today, totals, streak: streakData, skills, activities: activityData.activities }),
+    isOwner && activityData.ready ? isRecapDue(supabase, today, streakData.days) : Promise.resolve(false),
+  ]);
   const achievements = isOwner ? await recordAchievements(supabase, stats, unlocked) : { unlocked };
 
   const todayCounts: Record<string, number> = {};

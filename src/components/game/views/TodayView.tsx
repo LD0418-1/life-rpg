@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/ui/EmptyState";
 import Link from "next/link";
 import { useState } from "react";
 import { quickLogActivities } from "@/lib/game/activities";
@@ -29,7 +30,7 @@ function Hero() {
         </div>
       </div>
       <div className="min-w-0">
-        <p className="font-label text-sm font-semibold tracking-[0.3em] text-crimson uppercase md:text-base">Life RPG</p>
+        <p className="font-label text-sm font-semibold tracking-[0.3em] text-crimson-text uppercase md:text-base">Life RPG</p>
         <h1 className="font-display text-4xl leading-[0.95] break-words uppercase sm:text-5xl md:text-7xl">{data.displayName}</h1>
         {data.title && <p className="mt-1 font-label text-base font-semibold tracking-wide text-muted uppercase md:mt-2 md:text-xl">{data.title}</p>}
       </div>
@@ -134,15 +135,13 @@ function Dailies() {
   return (
     <Panel title="Dailies" kicker={data.today}>
       {data.dailies.length === 0 ? (
-        <p className="py-2 text-muted">
-          No dailies yet.
+        <EmptyState glyph="✓" title="No dailies yet">
           {canEdit && (
             <>
-              {" "}
-              Add one on the <Link href={`${basePath}/quests`} className="underline hover:text-paper">Quests</Link> page.
+              Small habits you check off each day. Add one on the <Link href={`${basePath}/quests`} className="underline hover:text-paper">Quests</Link> page.
             </>
           )}
-        </p>
+        </EmptyState>
       ) : (
         <ul className="space-y-2">
           {data.dailies.map((d) =>
@@ -179,7 +178,7 @@ function Dailies() {
                     <button onClick={() => setEditing(d.id)} aria-label={`Edit ${d.title}`} className="px-1 text-muted opacity-60 hover:text-paper hover:opacity-100">
                       ✎
                     </button>
-                    <button onClick={() => abandonQuest(d)} aria-label={`Remove ${d.title}`} className="px-1 text-muted opacity-60 hover:text-crimson hover:opacity-100">
+                    <button onClick={() => abandonQuest(d)} aria-label={`Remove ${d.title}`} className="px-1 text-muted opacity-60 hover:text-crimson-text hover:opacity-100">
                       ×
                     </button>
                   </>
@@ -199,7 +198,7 @@ function RecentLog() {
   return (
     <Panel title="Log" kicker="Recent">
       {data.recent.length === 0 ? (
-        <p className="py-4 text-muted">Nothing logged yet. Your adventure starts with one tap.</p>
+        <EmptyState glyph="⚡" title="Nothing logged yet">Your adventure starts with one tap on the quick log.</EmptyState>
       ) : (
         <ul className="divide-y divide-ink-3">
           {data.recent.map((e) => {
@@ -215,7 +214,7 @@ function RecentLog() {
                   </span>
                   {a && e.note && <span className="block truncate text-xs text-muted italic">“{e.note}”</span>}
                 </span>
-                <span className="font-label font-extrabold text-crimson tabular-nums">+{e.xp}</span>
+                <span className="font-label font-extrabold text-crimson-text tabular-nums">+{e.xp}</span>
                 <span className="w-12 text-right text-xs text-muted tabular-nums">{e.occurredOn === data.today ? "today" : e.occurredOn.slice(5)}</span>
                 {canEdit && <LockButton isPublic={e.isPublic !== false} onToggle={() => void setEntryPublic(e, e.isPublic === false)} disabled={isBusy(`vis:${e.id}`)} what={a?.name ?? "This entry"} />}
                 {canEdit && (
@@ -224,7 +223,7 @@ function RecentLog() {
                     disabled={!a || isBusy(`del:${e.id}`)}
                     aria-label={a ? `Delete ${a.name} entry` : "Rewards can't be deleted"}
                     title={a ? "Delete entry" : "Rewards can't be deleted"}
-                    className="w-5 text-muted opacity-60 hover:text-crimson hover:opacity-100 disabled:invisible"
+                    className="w-5 text-muted opacity-60 hover:text-crimson-text hover:opacity-100 disabled:invisible"
                   >
                     ×
                   </button>

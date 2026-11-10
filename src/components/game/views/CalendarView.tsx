@@ -102,7 +102,7 @@ function FeedsPanel({ cal, onChange }: { cal: CalendarData; onChange: () => void
                   <span className="block text-xs text-muted">{f.host}</span>
                   {err && <span className="block text-xs text-volt">⚠ {err.message}</span>}
                 </span>
-                <button onClick={() => void remove(f.id, f.name)} aria-label={`Unlink ${f.name}`} className="px-1 text-muted hover:text-crimson">
+                <button onClick={() => void remove(f.id, f.name)} aria-label={`Unlink ${f.name}`} className="px-1 text-muted hover:text-crimson-text">
                   ×
                 </button>
               </li>

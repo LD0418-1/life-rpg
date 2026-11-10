@@ -10,8 +10,8 @@ export interface Theme {
 }
 
 export const THEMES: Theme[] = [
-  { id: "crimson", name: "Crimson", level: 1, accent: "#e3172f", deep: "#8f0d1d" },
-  { id: "cobalt", name: "Cobalt", level: 5, accent: "#2563eb", deep: "#1e3a8a" },
+  { id: "crimson", name: "Crimson", level: 1, accent: "#d31329", deep: "#8f0d1d" },
+  { id: "cobalt", name: "Cobalt", level: 5, accent: "#1d4ed8", deep: "#1e3a8a" },
   { id: "jade", name: "Jade", level: 10, accent: "#0b7a45", deep: "#064e2b" },
   { id: "blaze", name: "Blaze", level: 15, accent: "#c2410c", deep: "#7c2d12" },
   { id: "royal", name: "Royal", level: 20, accent: "#7c3aed", deep: "#4c1d95" },

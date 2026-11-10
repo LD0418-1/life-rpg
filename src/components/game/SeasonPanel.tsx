@@ -364,7 +364,7 @@ export function SeasonPanel() {
       ))}
       {past.length > 0 && (
         <div>
-          <p className="mb-3 font-label text-sm font-extrabold tracking-[0.3em] text-crimson uppercase">Past seasons</p>
+          <p className="mb-3 font-label text-sm font-extrabold tracking-[0.3em] text-crimson-text uppercase">Past seasons</p>
           <ul className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {past.map((s) => (
               <PastSeasonCard key={s.id} season={s} />

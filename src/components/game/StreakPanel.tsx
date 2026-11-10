@@ -81,7 +81,7 @@ export function StreakPanel({
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-6 gap-y-4">
         <div className="text-center">
           <div className="font-display text-7xl leading-none tabular-nums">{progress.streak}</div>
-          <div className="font-label text-sm font-extrabold tracking-widest text-crimson uppercase">Day streak</div>
+          <div className="font-label text-sm font-extrabold tracking-widest text-crimson-text uppercase">Day streak</div>
           <div className="text-xs text-muted">Best {progress.bestStreak}</div>
         </div>
         <div className="space-y-3">

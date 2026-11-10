@@ -18,7 +18,7 @@ A sidebar on big screens and a tab bar on phones link these sections:
 - `/calendar` (owner only): your Google / Apple calendars (via their private iCal links), plus Life RPG days: XP, rest days, quests cleared, seasons.
 - `/shop` (owner only): the loot shop and your inventory, with shop purchases and custom quest rewards. "Use it" can log what it cost to the wallet.
 - `/wallet` (owner only): income and spending by category and day, monthly budget, entries by month.
-- `/settings` (owner only): name, title, bio, theme, public profile switch.
+- `/settings` (owner only): name, title, bio, theme, public profile switch, what visitors see, light / dark and sound for this device, and **Backup** downloads.
 - `/login`: the owner login.
 - `/preview/...`: the same pages running on sample data in your browser, so nothing is saved.
 
@@ -111,6 +111,11 @@ supabase/migrations/
 
 The style is an original high-contrast JRPG menu look: ink black, paper white and crimson, with sliced corners, slanted bars, halftone dots and stamp-style animations. All colors are tokens at the top of `src/app/globals.css`. Fonts (Anton, Barlow Condensed, Inter) are self-hosted via `@fontsource`.
 
+- **Light theme:** the sidebar button (or Settings → This device) cycles Dark → Light → Device. The light theme swaps the ink and paper tokens (`:root[data-theme="light"]` in globals.css). The choice is saved in this browser and applied by a tiny script in `<head>` before the page draws (`src/lib/appearance-script.ts`), so it never flashes dark first.
+- **Sounds** (`src/lib/sound.ts`): short effects made with the Web Audio API, no audio files. Turn them off per device in the sidebar or Settings.
+- **Motion:** if "reduce motion" is on in your device settings, every animation is switched off.
+- **Accessibility:** text meets WCAG AA contrast in both themes (checked with axe). Small crimson text uses a slightly lighter shade (`text-crimson-text`) so it stays readable.
+
 ## Setting up Supabase
 
 1. Create a project at supabase.com.
@@ -122,6 +127,15 @@ The style is an original high-contrast JRPG menu look: ink black, paper white an
 6. Copy `.env.example` to `.env.local`. Fill in the Project URL and the **publishable** key from **Project Settings → API Keys**. Never use the secret / service_role key.
 7. Optional: make your profile visible to visitors:
    `update profile set is_public = true, display_name = 'Your Name', title = 'Your title';`
+
+## Backup
+
+Settings → **Backup** downloads:
+- **Full backup (JSON):** every table: log, quests, skills, seasons, trophies, shop, wallet, imports, activities, diary, recaps, profile. Calendar links and connection tokens are left out.
+- **Log as spreadsheet (CSV):** one row per entry, opens in Excel / Numbers / Google Sheets.
+- **Diary as text (Markdown).**
+
+Backups include private entries and your diary, so keep them somewhere private. The JSON has the same columns as the database tables, so it can be loaded back with SQL if ever needed.
 
 ## Install on your phone
 

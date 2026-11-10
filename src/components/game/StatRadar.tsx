@@ -31,7 +31,7 @@ export function StatRadar({ stats }: { stats: RadarStat[] }) {
 
   return (
     <div className="relative mx-auto w-full max-w-[340px]">
-      <svg viewBox={`0 0 ${size} ${size}`} className="w-full" role="img" aria-label="Domain levels">
+      <svg viewBox={`0 0 ${size} ${size}`} className="w-full" role="group" aria-label="Domain levels">
         {[0.25, 0.5, 0.75, 1].map((f) => (
           <polygon key={f} points={ring(f)} fill="none" stroke="var(--ink-3)" strokeWidth={f === 1 ? 2 : 1} />
         ))}
@@ -71,6 +71,7 @@ export function StatRadar({ stats }: { stats: RadarStat[] }) {
                 r={18}
                 fill="transparent"
                 tabIndex={0}
+                role="img"
                 aria-label={`${s.label}: level ${s.level}, ${s.totalXp} XP`}
                 onMouseEnter={() => setHover(s.id)}
                 onMouseLeave={() => setHover(null)}

@@ -21,6 +21,7 @@ import { type CharacterSummary, addToTotals, detectLevelUp, summarizeTotals } fr
 import { LevelUpOverlay, type LevelUpEvent } from "./LevelUpOverlay";
 import { LogDialog } from "./LogDialog";
 import { ShareButton } from "./ShareButton";
+import { sounds } from "@/lib/sound";
 import { VictoryOverlay, type VictoryEvent } from "./VictoryOverlay";
 
 export type GameMode = "preview" | "owner" | "visitor";
@@ -158,7 +159,10 @@ export function GameProvider({
     const t = setTimeout(() => setBanners((b) => b.slice(1)), 2400);
     return () => clearTimeout(t);
   }, [banners]);
-  const pushBanner = (b: Omit<Banner, "key">) => setBanners((all) => [...all, { ...b, key: Date.now() + Math.random() }]);
+  const pushBanner = (b: Omit<Banner, "key">) => {
+    sounds.chime();
+    setBanners((all) => [...all, { ...b, key: Date.now() + Math.random() }]);
+  };
 
   // ----- achievements: re-check shortly after anything that could earn one -----
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -187,6 +191,7 @@ export function GameProvider({
     try {
       return await fn();
     } catch (e) {
+      sounds.error();
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setBusy((b) => {
@@ -228,6 +233,10 @@ export function GameProvider({
     const levelEvent = up
       ? { key, scope: up.scope === "overall" ? "Overall" : domainLabel(up.scope), level: up.level, domain: up.scope === "overall" ? undefined : up.scope }
       : null;
+    if (bossDefeated) sounds.victory();
+    else if (levelEvent) sounds.levelUp();
+    else if (entry.source === "quest") sounds.coin();
+    else sounds.xp();
     if (bossDefeated) {
       setVictory({ key, questId: bossDefeated.id, title: bossDefeated.title, xp: entry.xp, gold: entry.gold });
       pendingLevelUp.current = levelEvent; // shown after the victory screen
@@ -589,8 +598,8 @@ export function GameProvider({
             </div>
           )}
           {error && (
-            <div role="alert" className="skew-box flex items-center gap-3 bg-paper px-6 py-3 text-ink shadow-[5px_5px_0_var(--crimson)]">
-              <span className="font-label font-extrabold tracking-wider text-crimson uppercase">Error</span>
+            <div key={error} role="alert" className="anim-shake skew-box flex items-center gap-3 bg-paper px-6 py-3 text-ink shadow-[5px_5px_0_var(--crimson)]">
+              <span className="font-label font-extrabold tracking-wider text-crimson-text uppercase">Error</span>
               <span className="flex-1 text-sm">{error}</span>
               <button onClick={() => setError(null)} className="font-display text-xl" aria-label="Dismiss error">
                 ×

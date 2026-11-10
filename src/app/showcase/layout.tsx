@@ -23,7 +23,7 @@ export default async function ShowcasePreviewLayout({ children }: { children: Re
   return (
     <main className="grid min-h-dvh place-items-center px-4">
       <div className="max-w-md text-center">
-        <p className="font-label text-base font-semibold tracking-[0.3em] text-crimson uppercase">Visitor view</p>
+        <p className="font-label text-base font-semibold tracking-[0.3em] text-crimson-text uppercase">Visitor view</p>
         <h1 className="mt-2 -rotate-2 font-display text-6xl uppercase">Coming <span className="bg-paper px-2 text-ink">soon</span></h1>
         <p className="mt-6 text-muted">
           That&apos;s all visitors see right now, because your profile is private. Turn on <strong>Public profile</strong> in Settings to show your page.

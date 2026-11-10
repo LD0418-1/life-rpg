@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { XpBar } from "@/components/ui/XpBar";
 import type { Section } from "@/lib/game/visibility";
+import { PrefsButtons } from "@/components/PrefsControls";
 import { useGame } from "./GameProvider";
 
 type IconName = "today" | "inbox" | "journal" | "diary" | "quests" | "calendar" | "world" | "skills" | "trophies" | "shop" | "wallet" | "settings" | "more";
@@ -110,9 +111,9 @@ export function AppShell({ children, accountActions, notice }: { children: React
   return (
     <div className="min-h-dvh lg:pl-60">
       {(mode === "preview" || notice) && (
-        <div className="stripes sticky top-0 z-30 px-4 py-1.5 text-center font-label text-xs font-extrabold tracking-[0.12em] text-paper uppercase sm:text-sm sm:tracking-[0.2em]">
+        <section aria-label="Notice" className="stripes sticky top-0 z-30 px-4 py-1.5 text-center font-label text-xs font-extrabold tracking-[0.12em] text-paper uppercase sm:text-sm sm:tracking-[0.2em]">
           {notice ?? "Preview · sample data · nothing is saved"}
-        </div>
+        </section>
       )}
 
       {/* ---------- Sidebar (big screens) ---------- */}
@@ -123,7 +124,7 @@ export function AppShell({ children, accountActions, notice }: { children: React
               {summary.overall.level}
             </span>
             <span className="min-w-0">
-              <span className="block font-label text-[11px] font-extrabold tracking-[0.25em] text-crimson uppercase">Life RPG</span>
+              <span className="block font-label text-[11px] font-extrabold tracking-[0.25em] text-crimson-text uppercase">Life RPG</span>
               <span className="block truncate font-display text-xl leading-tight uppercase group-hover:text-volt">{data.displayName}</span>
             </span>
           </Link>
@@ -176,6 +177,7 @@ export function AppShell({ children, accountActions, notice }: { children: React
               Settings
             </Link>
           )}
+          <PrefsButtons className="px-3" />
           {accountActions && <div className="px-5 py-1">{accountActions}</div>}
         </div>
       </aside>
@@ -187,6 +189,7 @@ export function AppShell({ children, accountActions, notice }: { children: React
           <span className="truncate font-display text-lg uppercase">{data.displayName}</span>
         </Link>
         {canEdit && <span className="font-label text-sm font-extrabold text-volt tabular-nums">◆ {goldBalance.toLocaleString()}</span>}
+        {!useMore && <PrefsButtons className="font-label text-xs font-extrabold tracking-widest text-muted uppercase [&_span]:hidden" />}
         {settingsHref && !useMore && (
           <Link href={settingsHref} aria-label="Settings" className="p-1 text-muted hover:text-paper">
             <Icon name="settings" />
@@ -194,7 +197,9 @@ export function AppShell({ children, accountActions, notice }: { children: React
         )}
       </header>
 
-      <div className="pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-12">{children}</div>
+      <div id="main" key={pathname} className="anim-page pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-12">
+        {children}
+      </div>
 
       {/* ---------- "More" sheet (phones) ---------- */}
       {moreOpen && (
@@ -225,9 +230,10 @@ export function AppShell({ children, accountActions, notice }: { children: React
                 </li>
               ))}
             </ul>
-            {accountActions && (
-              <div className="mt-3 border-t border-ink-3 px-2 pt-3 font-label text-sm font-extrabold tracking-widest text-muted uppercase">{accountActions}</div>
-            )}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-ink-3 px-2 pt-3 font-label text-sm font-extrabold tracking-widest text-muted uppercase">
+              <PrefsButtons className="-ml-2" />
+              {accountActions}
+            </div>
           </nav>
         </div>
       )}

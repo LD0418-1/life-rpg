@@ -118,7 +118,7 @@ export function RecapPanel() {
           <>
             <div className="mb-1 flex flex-wrap items-center gap-2 font-label text-[11px] font-extrabold tracking-widest text-muted uppercase">
               <span>{recap.source === "ai" ? "Written by AI" : "Basic recap"}</span>
-              {canEdit && <span className={recap.isPublic ? "text-crimson" : "text-volt"}>· {recap.isPublic ? "Public" : "Private"}</span>}
+              {canEdit && <span className={recap.isPublic ? "text-crimson-text" : "text-volt"}>· {recap.isPublic ? "Public" : "Private"}</span>}
             </div>
             <h3 id="recap-title" className="mb-4 font-display text-4xl leading-none break-words uppercase sm:text-5xl">{recap.title}</h3>
             {s && (

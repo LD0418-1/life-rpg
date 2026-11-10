@@ -83,10 +83,14 @@
 - [x] Saved to the Journal, private by default; make it public and share it (text + link)
 - [x] Editable quick log: add your own activities, edit XP rules, hide, reorder, reset to default
 - [x] Diary: notes with mood and title, month view, search, private or public; public notes show in the Journal
-- [ ] Run `0008_activities_diary_recaps.sql` on the live database
+- [x] Run `0008_activities_diary_recaps.sql` on the live database
 - [ ] Add `ANTHROPIC_API_KEY` in Vercel
 
 ## Phase 9: Polish
-- [ ] Sounds, animations, empty states, light theme
-- [ ] Performance + accessibility pass
-- [ ] Backup / export
+- [x] Sound effects made in the browser (XP, quest, level-up, boss victory, trophy, error), on/off per device
+- [x] Animations: page slide-in, error shake; "reduce motion" on your device turns all motion off
+- [x] Empty states with a hint about what to do next
+- [x] Light theme (Dark / Light / follow device), chosen per device, no dark flash on load
+- [x] Accessibility pass: 0 issues from the axe checker on all 12 pages, dark and light (text contrast, chart labels, landmarks)
+- [x] Performance: page data loads in parallel; small pages (≈100–135 kB of JavaScript)
+- [x] Backup: full JSON backup, log as CSV, diary as text (Settings → Backup); secrets left out

@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useEffect, useState } from "react";
 import { Panel } from "@/components/ui/Panel";
 import { SlashButton } from "@/components/ui/SlashButton";
@@ -97,7 +98,6 @@ function DailyBars({ days, currency, today }: { days: { day: string; amount: num
                 fill="transparent"
                 onMouseEnter={() => setHover(i)}
                 onClick={() => setHover(i)}
-                aria-label={`${dayLabel(d.day)}: ${formatMoney(d.amount, currency)}`}
               />
             </g>
           );
@@ -340,7 +340,7 @@ export function WalletView() {
             {!summary ? (
               <p className="text-sm text-muted">Loading…</p>
             ) : summary.byCategory.length === 0 ? (
-              <p className="text-sm text-muted">No spending logged this month.</p>
+              <EmptyState glyph="¤" title="No spending yet">Add an expense below and it shows up here by category.</EmptyState>
             ) : (
               <CategoryBars rows={summary.byCategory} total={summary.spent} currency={currency} />
             )}
@@ -383,7 +383,7 @@ export function WalletView() {
                           <span className={`font-label text-base font-extrabold tabular-nums ${t.kind === "income" ? "text-volt" : ""}`}>
                             {formatMoney(t.kind === "income" ? t.amount : -t.amount, currency, { sign: true })}
                           </span>
-                          <button onClick={() => void remove(t)} aria-label={`Delete ${t.category} entry`} className="px-1 text-muted opacity-60 hover:text-crimson hover:opacity-100">
+                          <button onClick={() => void remove(t)} aria-label={`Delete ${t.category} entry`} className="px-1 text-muted opacity-60 hover:text-crimson-text hover:opacity-100">
                             ×
                           </button>
                         </li>

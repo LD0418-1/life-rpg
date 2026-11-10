@@ -185,7 +185,7 @@ export function ActivityManager({ onDone }: { onDone: () => void }) {
                   Reset
                 </button>
               ) : (
-                <button onClick={() => void remove(a)} disabled={isBusy(`act:${a.slug}`)} aria-label={`Delete ${a.name}`} className="w-12 font-display text-xl text-muted hover:text-crimson">×</button>
+                <button onClick={() => void remove(a)} disabled={isBusy(`act:${a.slug}`)} aria-label={`Delete ${a.name}`} className="w-12 font-display text-xl text-muted hover:text-crimson-text">×</button>
               )}
             </li>
           ),

@@ -1,6 +1,7 @@
 "use client";
 
 // Diary: jot down notes, one or more per day. Private unless you unlock one.
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useEffect, useRef, useState } from "react";
 import { Panel } from "@/components/ui/Panel";
 import { SlashButton } from "@/components/ui/SlashButton";
@@ -161,12 +162,12 @@ function EntryCard({ entry, onEdit, onChange, onDelete }: { entry: DiaryEntry; o
             }
             disabled={isBusy(`diary-vis:${entry.id}`)}
             title={entry.isPublic ? "Public: visitors can read it. Tap to make it private." : "Private: only you. Tap to make it public."}
-            className={`px-2 font-label text-xs font-extrabold tracking-widest uppercase ${entry.isPublic ? "text-crimson" : "text-ink/50 hover:text-ink"}`}
+            className={`px-2 font-label text-xs font-extrabold tracking-widest uppercase ${entry.isPublic ? "skew-box bg-crimson py-0.5 text-paper" : "text-ink/60 hover:text-ink"}`}
           >
             {entry.isPublic ? "Public" : "🔒 Private"}
           </button>
           <button onClick={onEdit} aria-label="Edit entry" className="px-1.5 text-ink/60 hover:text-ink">✎</button>
-          <button onClick={onDelete} disabled={isBusy(`diary-del:${entry.id}`)} aria-label="Delete entry" className="px-1.5 font-display text-xl leading-none text-ink/60 hover:text-crimson">×</button>
+          <button onClick={onDelete} disabled={isBusy(`diary-del:${entry.id}`)} aria-label="Delete entry" className="px-1.5 font-display text-xl leading-none text-ink/60 hover:text-crimson-text">×</button>
         </span>
       </header>
       <p className="leading-relaxed break-words whitespace-pre-wrap">{entry.body}</p>
@@ -294,7 +295,9 @@ export function DiaryView() {
           {!entries ? (
             !error && <p className="text-muted">Loading…</p>
           ) : days.length === 0 ? (
-            <p className="text-muted">{query ? "Nothing matches." : `No entries in ${monthLabel(month)}.`}</p>
+            <EmptyState glyph="✎" title={query ? "Nothing matches" : `No entries in ${monthLabel(month)}`}>
+              {query ? "Try fewer or different words." : "Write the first one above. A sentence a day is enough."}
+            </EmptyState>
           ) : (
             <ol className="space-y-10">
               {days.map(([day, list]) => (

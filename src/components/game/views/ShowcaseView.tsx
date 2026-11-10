@@ -54,7 +54,7 @@ export function ShowcaseView() {
           <div className="font-display text-7xl leading-none text-paper drop-shadow-[4px_4px_0_var(--ink)] md:text-9xl">{summary.overall.level}</div>
         </div>
         <div className="min-w-0">
-          <p className="font-label text-sm font-semibold tracking-[0.3em] text-crimson uppercase md:text-base">Life RPG</p>
+          <p className="font-label text-sm font-semibold tracking-[0.3em] text-crimson-text uppercase md:text-base">Life RPG</p>
           <h1 className="font-display text-5xl leading-[0.92] break-words uppercase sm:text-6xl md:text-8xl">{data.displayName}</h1>
           {data.title && <p className="mt-2 font-label text-lg font-semibold tracking-wide text-muted uppercase md:text-2xl">{data.title}</p>}
         </div>
@@ -101,7 +101,7 @@ export function ShowcaseView() {
               <div className="flex flex-wrap items-end gap-8">
                 <div>
                   <div className="font-display text-7xl leading-none tabular-nums">{progress.streak}</div>
-                  <div className="font-label text-sm font-extrabold tracking-widest text-crimson uppercase">Day streak</div>
+                  <div className="font-label text-sm font-extrabold tracking-widest text-crimson-text uppercase">Day streak</div>
                 </div>
                 <div>
                   <div className="font-display text-4xl leading-none tabular-nums">{progress.bestStreak}</div>
@@ -201,7 +201,7 @@ export function ShowcaseView() {
                         {a?.name ?? e.note ?? "Reward"}
                         {a && <span className="text-muted"> · {unitLabel(Math.round(e.units), a.unit)}</span>}
                       </span>
-                      <span className="font-label font-extrabold text-crimson tabular-nums">+{e.xp}</span>
+                      <span className="font-label font-extrabold text-crimson-text tabular-nums">+{e.xp}</span>
                     </li>
                   );
                 })}

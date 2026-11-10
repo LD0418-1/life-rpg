@@ -1,7 +1,7 @@
 "use client";
 
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useEffect, useMemo, useState } from "react";
-import { Panel } from "@/components/ui/Panel";
 import { ACHIEVEMENTS } from "@/lib/game/achievements";
 import { gameConfig } from "@/lib/game/config";
 import { monthLabel, monthOf, monthRange, shiftMonth } from "@/lib/game/finance";
@@ -154,9 +154,7 @@ export function JournalView() {
       {!journal ? (
         <p className="text-muted">Loading…</p>
       ) : byDay.length === 0 ? (
-        <Panel title="Quiet">
-          <p className="text-sm text-muted">Nothing logged in this stretch.</p>
-        </Panel>
+        <EmptyState glyph="✎" title="A quiet stretch">Nothing logged here yet. Every entry, level-up and trophy shows up on this timeline.</EmptyState>
       ) : (
         <ol className="relative space-y-8 border-l-4 border-ink-3 pl-6">
           {byDay.map(([day, items]) => {
@@ -171,7 +169,7 @@ export function JournalView() {
                 <span aria-hidden className="absolute top-2 -left-[2.15rem] h-4 w-4 rotate-45 bg-crimson" />
                 <div className="mb-2 flex flex-wrap items-baseline gap-3">
                   <h2 className="font-display text-2xl uppercase">{day === data.today ? "Today" : day === addDays(data.today, -1) ? "Yesterday" : longDay(day)}</h2>
-                  {dayXp > 0 && <span className="font-label font-extrabold text-crimson">+{dayXp} XP</span>}
+                  {dayXp > 0 && <span className="font-label font-extrabold text-crimson-text">+{dayXp} XP</span>}
                 </div>
                 {(lvl || seasonMarks.length > 0 || items.trophies.length > 0 || items.skills.length > 0) && (
                   <div className="mb-2 flex flex-wrap items-center gap-2 font-label text-xs font-extrabold tracking-wider uppercase">
@@ -232,7 +230,7 @@ export function JournalView() {
                             {a && e.note && e.source === "manual" && <span className="block truncate text-xs text-muted italic">“{e.note}”</span>}
                             {a && e.note && e.source && SOURCE_TAG[e.source] && <span className="block truncate text-xs text-muted">{e.note}</span>}
                           </span>
-                          <span className="font-label font-extrabold text-crimson tabular-nums">+{e.xp}</span>
+                          <span className="font-label font-extrabold text-crimson-text tabular-nums">+{e.xp}</span>
                           {canEdit && (
                             <button
                               onClick={() =>

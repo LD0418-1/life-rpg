@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useEffect, useState } from "react";
 import { Panel } from "@/components/ui/Panel";
 import { SlashButton } from "@/components/ui/SlashButton";
@@ -47,7 +48,7 @@ function SkillForm({ form, onDone }: { form: NonNullable<FormState>; onDone: (cr
   return (
     <form onSubmit={submit} className="space-y-4 border-l-2 border-crimson pl-4">
       <p className="font-label text-sm font-extrabold tracking-widest uppercase">
-        {isTree ? "New skill tree" : <>New skill after <span className="text-crimson">{form.parent.name}</span></>}
+        {isTree ? "New skill tree" : <>New skill after <span className="text-crimson-text">{form.parent.name}</span></>}
       </p>
       {isTree && (
         <div className="grid gap-4 sm:grid-cols-[1fr_10rem]">
@@ -208,11 +209,10 @@ export function SkillTrees() {
       )}
 
       {trees.length === 0 ? (
-        <p className="text-sm text-muted">
-          {canEdit
-            ? "Plant a tree for a real skill you're learning (guitar, cooking, a language). Each skill is a concrete milestone, and unlocking it pays XP. Skills further down need the one above them first."
-            : "No skill trees yet."}
-        </p>
+        <EmptyState glyph="✦" title="No skill trees yet">
+          {canEdit &&
+            "Plant a tree for a real skill you're learning (guitar, cooking, a language). Each skill is a concrete milestone, and unlocking it pays XP. Skills further down need the one above them first."}
+        </EmptyState>
       ) : (
         <>
           <TreeCanvas skills={skills} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
