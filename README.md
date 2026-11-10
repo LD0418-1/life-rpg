@@ -6,7 +6,7 @@ My life, played as a game. It's a motivation engine that keeps me on track, and 
 
 ### Pages
 A sidebar on big screens and a tab bar on phones link these sections:
-- `/` **Today**: your character, quick log, streak, dailies, recent log.
+- `/` **Today** (when you're logged in): your character, quick log, streak, dailies, recent log. Visitors see your **public showcase** here instead.
 - `/quests`: the current season (goals, day count, rank so far), past season recaps, then bosses, main and side quests.
 - `/world`: the world map. One region per domain, with buildings that grow in 6 stages as the domain levels up.
 - `/skills`: stats radar, level unlocks (color themes) and skill trees.
