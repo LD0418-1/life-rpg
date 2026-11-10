@@ -74,7 +74,7 @@
 - [x] Privacy controls: section switches, hidden domains, per-quest / per-entry locks, enforced by database rules
 - [x] Journal: timeline by month or season with level-ups, trophies, skills, season milestones, summary
 - [x] Share cards (profile, level-up, boss, season) + link-preview image; Share on level-up / victory screens
-- [ ] Run `0007_showcase_privacy.sql` on the live database
+- [x] Run `0007_showcase_privacy.sql` on the live database
 
 ## Phase 8: Weekly AI recap
 - [ ] End-of-week recap saved to the journal
