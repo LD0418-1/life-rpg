@@ -71,9 +71,15 @@ function QuestCard({ q }: { q: Quest }) {
           )}
         </span>
       </div>
+      {canEdit && data.rewards[q.id] && editing !== q.id && (
+        <p className="mb-2 font-label text-xs font-extrabold tracking-widest text-volt uppercase">
+          <span aria-hidden>◈</span> Reward: <span className="normal-case tracking-normal">{data.rewards[q.id]}</span>
+        </p>
+      )}
       {editing === q.id ? (
         <QuestEditor
           quest={q}
+          reward={canEdit && data.extrasReady ? (data.rewards[q.id] ?? "") : undefined}
           onSave={(edit) => saveQuest(q, edit)}
           onAddObjective={(title) => addObjective(q, title)}
           onRemoveObjective={(objectiveId) => removeObjective(q, objectiveId)}
@@ -142,7 +148,7 @@ export function QuestsView() {
         </div>
         {canEdit && (
           <div className="space-y-6">
-            <NewQuestForm onCreate={createQuest} season={currentSeason(data.seasons, data.today)} />
+            <NewQuestForm onCreate={createQuest} season={currentSeason(data.seasons, data.today)} rewardsEnabled={data.extrasReady} />
             <p className="text-sm text-muted">
               Dailies you create here show up on the <strong>Today</strong> page. Mark a dreaded task as a <strong>boss</strong>: its objectives
               become HP, and you get a victory screen when it falls.

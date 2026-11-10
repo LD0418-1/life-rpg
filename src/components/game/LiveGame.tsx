@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo } from "react";
 import * as actions from "@/app/actions";
+import * as calendar from "@/app/calendar-actions";
+import * as wallet from "@/app/wallet-actions";
 import type { ActionResult } from "@/app/actions";
 import type { SheetBackend, SheetData } from "@/lib/game/types";
 import { AppShell } from "./AppShell";
@@ -25,7 +27,7 @@ export function LiveGame({ initial, isOwner, children }: { initial: SheetData; i
       logActivity: (slug, options) => unwrap(actions.logActivityAction(slug, options)),
       deleteEntry: (entryId) => unwrap(actions.deleteEntryAction(entryId)),
       completeDaily: (questId) => unwrap(actions.completeDailyAction(questId)),
-      setObjective: (_questId, objectiveId, done) => unwrap(actions.setObjectiveAction(objectiveId, done)),
+      setObjective: (questId, objectiveId, done) => unwrap(actions.setObjectiveAction(questId, objectiveId, done)),
       createQuest: (input) => unwrap(actions.createQuestAction(input)),
       updateQuest: (questId, edit) => unwrap(actions.updateQuestAction(questId, edit)),
       addObjective: (questId, title) => unwrap(actions.addObjectiveAction(questId, title)),
@@ -39,7 +41,14 @@ export function LiveGame({ initial, isOwner, children }: { initial: SheetData; i
       createLoot: (input) => unwrap(actions.createLootAction(input)),
       archiveLoot: (itemId) => unwrap(actions.archiveLootAction(itemId)),
       buyLoot: (itemId) => unwrap(actions.buyLootAction(itemId)),
-      redeemPurchase: (purchaseId) => unwrap(actions.redeemPurchaseAction(purchaseId)),
+      redeemPurchase: (purchaseId, spent) => unwrap(actions.redeemPurchaseAction(purchaseId, spent)),
+      loadWallet: (month) => unwrap(wallet.loadWalletAction(month)),
+      addTx: (input) => unwrap(wallet.addTxAction(input)),
+      deleteTx: (txId) => unwrap(wallet.deleteTxAction(txId)),
+      saveWalletSettings: (settings) => unwrap(wallet.saveWalletSettingsAction(settings)),
+      loadCalendar: (fromDay, toDay) => unwrap(calendar.loadCalendarAction(fromDay, toDay)),
+      addFeed: (input) => unwrap(calendar.addFeedAction(input)),
+      deleteFeed: (feedId) => unwrap(calendar.deleteFeedAction(feedId)),
       syncAchievements: () => unwrap(actions.syncAchievementsAction()),
       createSeason: (input) => unwrap(actions.createSeasonAction(input)),
       updateSeason: (seasonId, edit) => unwrap(actions.updateSeasonAction(seasonId, edit)),

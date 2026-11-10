@@ -13,6 +13,14 @@ export function cleanTitle(raw: string, what = "quest"): string {
   return title;
 }
 
+/** A custom real-world reward for finishing a quest, e.g. "Buy new clothes". Empty means none. */
+export function cleanReward(raw: string | null | undefined): string | null {
+  const reward = (raw ?? "").trim().replace(/\s+/g, " ");
+  if (!reward) return null;
+  if (reward.length > 120) throw new Error("Keep rewards under 120 characters.");
+  return reward;
+}
+
 export function cleanXpReward(raw: number): number {
   const xp = Math.round(Number(raw));
   if (!Number.isFinite(xp) || xp < 0 || xp > MAX_QUEST_XP) throw new Error(`XP reward must be between 0 and ${MAX_QUEST_XP}.`);
@@ -30,9 +38,10 @@ export function normalizeNewQuest(input: NewQuestInput, config: GameConfig = gam
   if (!config.domains.some((d) => d.id === input.domain)) throw new Error("Pick a domain.");
   const xpReward = cleanXpReward(input.xpReward);
 
-  const objectives =
+  let objectives =
     input.kind === "daily" ? [] : input.objectives.map((o) => o.trim()).filter(Boolean).slice(0, MAX_OBJECTIVES);
-  if (input.kind !== "daily" && objectives.length === 0) throw new Error("Add at least one objective (one per line).");
+  // No objectives: it's a one-step task, finished by ticking the task itself.
+  if (input.kind !== "daily" && objectives.length === 0) objectives = [title];
   for (const o of objectives) cleanTitle(o, "objective");
 
   return {

@@ -11,7 +11,9 @@ A sidebar on big screens and a tab bar on phones link these sections:
 - `/world`: the world map. One region per domain, with buildings that grow in 6 stages as the domain levels up.
 - `/skills`: stats radar, level unlocks (color themes) and skill trees.
 - `/trophies`: achievements. Hidden ones show as "???" until earned.
-- `/shop` (owner only): the loot shop and your inventory.
+- `/calendar` (owner only): your Google / Apple calendars (via their private iCal links), plus Life RPG days: XP, rest days, quests cleared, seasons.
+- `/shop` (owner only): the loot shop and your inventory, with shop purchases and custom quest rewards. "Use it" can log what it cost to the wallet.
+- `/wallet` (owner only): income and spending by category and day, monthly budget, entries by month.
 - `/settings` (owner only): name, title, bio, theme, public profile switch.
 - `/login`: the owner login.
 - `/preview/...`: the same pages running on sample data in your browser, so nothing is saved.
@@ -62,6 +64,7 @@ supabase/migrations/
   0002_totals_and_rewards.sql fast XP totals + all-or-nothing daily/quest rewards
   0003_streaks.sql            XP per day + planned rest days (for streaks and momentum)
   0004_depth.sql              skill unlocks, loot shop purchases, color theme
+  0005_rewards_wallet_calendar.sql  custom quest rewards, wallet, calendar links (all owner-only)
 ```
 
 ### The scoring rules (`src/config/xp.json`)
@@ -80,6 +83,9 @@ supabase/migrations/
 - **achievements** (`src/lib/game/achievements.ts`) are judged on the server from your database and recorded once earned.
 - **themes** (`src/lib/game/themes.ts`) unlock at levels 5, 10, 15 and 20.
 - **world map** (`src/lib/game/world.ts`, drawn in `src/components/game/WorldMap.tsx`): each region's stage follows its domain level (1, 3, 5, 10, 15, 25).
+- **custom rewards**: any quest or daily can carry your own real-world reward ("Math lecture → buy new clothes"). Finishing it puts the reward in your inventory, for free.
+- **quick tasks**: a main or side quest with no objectives becomes a one-step task named after itself.
+- **calendar links** are fetched only on the server (`src/app/calendar-actions.ts`, parsed by `src/lib/calendar/ics.ts`), never sent to the browser, and only https / webcal links to public hosts are allowed.
 - **seasons** (`src/lib/game/seasons.ts`): named chapters with dates and pinned quests as goals. The rank is based on the share of active days: S ≥ 90%, A ≥ 75%, B ≥ 50%, C ≥ 25%, otherwise D.
 - Streaks are *replayed* from your log every time (`src/lib/game/streaks.ts`), so nothing can drift out of sync, and changing these numbers re-tells your history with the new rules.
 
@@ -95,7 +101,7 @@ The style is an original high-contrast JRPG menu look: ink black, paper white an
 ## Setting up Supabase
 
 1. Create a project at supabase.com.
-2. In **SQL Editor**, run each file in `supabase/migrations/` in order: `0001_init.sql`, `0002_totals_and_rewards.sql`, `0003_streaks.sql`, `0004_depth.sql`.
+2. In **SQL Editor**, run each file in `supabase/migrations/` in order: `0001_init.sql`, `0002_totals_and_rewards.sql`, `0003_streaks.sql`, `0004_depth.sql`, `0005_rewards_wallet_calendar.sql`.
 3. In **Authentication → Users → Add user**, create your user and tick **Auto Confirm User**.
 4. In **Authentication → Sign In / Providers**, turn off **Allow new users to sign up**.
 5. Make yourself the owner by running this in the SQL Editor:

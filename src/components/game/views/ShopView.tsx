@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Panel } from "@/components/ui/Panel";
 import { SlashButton } from "@/components/ui/SlashButton";
 import { shortDate } from "@/lib/game/format";
-import { buyBlocker } from "@/lib/game/loot";
+import { type Purchase, buyBlocker } from "@/lib/game/loot";
 import { useGame } from "../GameProvider";
 import { PageHeader } from "./PageHeader";
 
@@ -67,8 +67,72 @@ function NewRewardForm() {
   );
 }
 
+/** One unused item: "Use it", optionally logging what it cost in the wallet. */
+function InventoryRow({ purchase: p, name }: { purchase: Purchase; name: string }) {
+  const { data, redeemPurchase, isBusy, basePath } = useGame();
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const fromQuest = p.source === "quest";
+  const finish = async (withSpend: boolean) => {
+    const value = Number(amount);
+    const ok = await redeemPurchase(p, withSpend && amount && value > 0 ? { amount: value, category: "Rewards" } : undefined);
+    if (ok) setOpen(false);
+  };
+  return (
+    <li className="py-1">
+      <div className="flex items-center gap-3">
+        <span className="min-w-0 flex-1">
+          {name}{" "}
+          <span className={`font-label text-[11px] font-extrabold tracking-widest uppercase ${fromQuest ? "text-volt" : "text-muted"}`}>
+            {fromQuest ? "◈ Quest reward" : `Bought ${shortDate(p.purchasedAt)}`}
+          </span>
+        </span>
+        {!open && (
+          <SlashButton variant="ghost" onClick={() => setOpen(true)} disabled={isBusy(`purchase:${p.id}`)}>
+            Use it
+          </SlashButton>
+        )}
+      </div>
+      {open && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void finish(true);
+          }}
+          className="mt-2 flex flex-wrap items-end gap-2 border-l-2 border-crimson pl-3"
+        >
+          {data.extrasReady ? (
+            <label className="min-w-0 flex-1">
+              <span className={labelClass}>Spent money on it? · optional</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="any"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="e.g. 45"
+                className={fieldClass}
+              />
+            </label>
+          ) : (
+            <span className="flex-1 text-sm text-muted">Enjoy it!</span>
+          )}
+          <SlashButton type="submit" disabled={isBusy(`purchase:${p.id}`)}>
+            {amount && Number(amount) > 0 ? "Use + log spend" : "Use it"}
+          </SlashButton>
+          <SlashButton type="button" variant="ghost" onClick={() => setOpen(false)}>
+            Cancel
+          </SlashButton>
+          {data.extrasReady && <p className="w-full text-xs text-muted">Logged spends show up in your <a href={`${basePath}/wallet`} className="underline">Wallet</a> under Rewards.</p>}
+        </form>
+      )}
+    </li>
+  );
+}
+
 export function ShopView() {
-  const { data, canEdit, goldBalance, buyLoot, archiveLoot, redeemPurchase, isBusy } = useGame();
+  const { data, canEdit, goldBalance, buyLoot, archiveLoot, isBusy } = useGame();
   if (!canEdit || !data.shop) {
     return (
       <main className="mx-auto max-w-6xl px-4 pt-8">
@@ -133,16 +197,9 @@ export function ShopView() {
             {unused.length === 0 ? (
               <p className="text-sm text-muted">Nothing waiting. Buy something you&apos;ve earned!</p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="divide-y divide-ink-3">
                 {unused.map((p) => (
-                  <li key={p.id} className="flex items-center gap-3">
-                    <span className="flex-1">
-                      {names.get(p.itemId) ?? "Reward"} <span className="text-xs text-muted">· bought {shortDate(p.purchasedAt)}</span>
-                    </span>
-                    <SlashButton variant="ghost" onClick={() => redeemPurchase(p)} disabled={isBusy(`purchase:${p.id}`)}>
-                      Use it
-                    </SlashButton>
-                  </li>
+                  <InventoryRow key={p.id} purchase={p} name={p.name ?? names.get(p.itemId ?? "") ?? "Reward"} />
                 ))}
               </ul>
             )}
@@ -152,7 +209,7 @@ export function ShopView() {
                 <ul className="space-y-1 text-sm text-muted">
                   {used.map((p) => (
                     <li key={p.id}>
-                      {names.get(p.itemId) ?? "A retired reward"} · {shortDate(p.redeemedAt!)}
+                      {p.name ?? names.get(p.itemId ?? "") ?? "A retired reward"} · {shortDate(p.redeemedAt!)}
                     </li>
                   ))}
                 </ul>

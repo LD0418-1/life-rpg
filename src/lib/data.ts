@@ -23,7 +23,17 @@ import {
 } from "@/lib/supabase/rows";
 import type { SeasonGoal } from "@/lib/game/seasons";
 import { createClient } from "@/lib/supabase/server";
-import { loadStreakData } from "@/lib/supabase/streak-data";
+import { isMissingRelation, loadStreakData } from "@/lib/supabase/streak-data";
+
+/** Custom quest rewards (owner only). `ready` is false until 0005 has been run. */
+async function loadRewards(supabase: Supabase): Promise<{ ready: boolean; rewards: Record<string, string> }> {
+  const { data, error } = await supabase.from("quest_rewards").select("quest_id, reward");
+  if (error) {
+    if (isMissingRelation(error)) return { ready: false, rewards: {} };
+    throw new Error(`Could not load rewards: ${error.message}`);
+  }
+  return { ready: true, rewards: Object.fromEntries((data ?? []).map((r) => [r.quest_id as string, r.reward as string])) };
+}
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -59,7 +69,7 @@ export async function loadSheet(): Promise<SheetResult> {
   if (!profile || (!isOwner && !profile.is_public)) return { kind: "private", signedIn: Boolean(user) };
 
   const today = dayInTimeZone(new Date(), profile.timezone);
-  const [streakData, totals, recentRes, todayRes, questsRes, doneRes, skills, unlocked, shop, goldSpent, seasonsRes, closedGoalsRes, completedRes] =
+  const [streakData, totals, recentRes, todayRes, questsRes, doneRes, skills, unlocked, shop, goldSpent, seasonsRes, closedGoalsRes, completedRes, rewardData] =
     await Promise.all([
     loadStreakData(supabase),
     loadTotals(supabase),
@@ -74,6 +84,7 @@ export async function loadSheet(): Promise<SheetResult> {
     supabase.from("seasons").select(SEASON_COLUMNS).order("starts_on"),
     supabase.from("quests").select("id, title, season_id, status").not("season_id", "is", null).neq("status", "active"),
     supabase.from("quests").select("completed_at").eq("status", "completed").neq("kind", "daily"),
+    isOwner ? loadRewards(supabase) : Promise.resolve({ ready: true, rewards: {} }),
   ]);
   for (const res of [recentRes, todayRes, questsRes, doneRes, seasonsRes, closedGoalsRes, completedRes]) {
     if (res.error) throw new Error(`Could not load your data: ${res.error.message}`);
@@ -120,6 +131,8 @@ export async function loadSheet(): Promise<SheetResult> {
       completedOn: (completedRes.data ?? [])
         .filter((q) => q.completed_at)
         .map((q) => dayInTimeZone(new Date(q.completed_at as string), profile.timezone)),
+      rewards: rewardData.rewards,
+      extrasReady: rewardData.ready,
     },
   };
 }

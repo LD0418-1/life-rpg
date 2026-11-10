@@ -1,4 +1,6 @@
 // Database rows (snake_case) and how they turn into app objects (camelCase).
+import type { MoneyTx } from "@/lib/game/finance";
+import type { Purchase } from "@/lib/game/loot";
 import type { Season } from "@/lib/game/seasons";
 import type { LogEntry, Quest } from "@/lib/game/types";
 
@@ -96,4 +98,45 @@ export interface SeasonRow {
 
 export function toSeason(r: SeasonRow): Season {
   return { id: r.id, name: r.name, startsOn: r.starts_on, endsOn: r.ends_on, notes: r.notes };
+}
+
+/** Purchases are selected with "*" so this works before and after 0005 adds name/quest_id/source. */
+export interface PurchaseRow {
+  id: string;
+  item_id: string | null;
+  cost: number;
+  purchased_at: string;
+  redeemed_at: string | null;
+  name?: string | null;
+  quest_id?: string | null;
+  source?: string | null;
+}
+
+export function toPurchase(p: PurchaseRow): Purchase {
+  return {
+    id: p.id,
+    itemId: p.item_id,
+    name: p.name ?? null,
+    questId: p.quest_id ?? null,
+    source: p.source === "quest" ? "quest" : "shop",
+    cost: Number(p.cost),
+    purchasedAt: p.purchased_at,
+    redeemedAt: p.redeemed_at,
+  };
+}
+
+export const TX_COLUMNS = "id, occurred_on, kind, amount, category, note, purchase_id";
+
+export interface MoneyTxRow {
+  id: string;
+  occurred_on: string;
+  kind: "expense" | "income";
+  amount: number | string;
+  category: string;
+  note: string | null;
+  purchase_id: string | null;
+}
+
+export function toMoneyTx(r: MoneyTxRow): MoneyTx {
+  return { id: r.id, occurredOn: r.occurred_on, kind: r.kind, amount: Number(r.amount), category: r.category, note: r.note, purchaseId: r.purchase_id };
 }

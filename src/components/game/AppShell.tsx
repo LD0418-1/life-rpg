@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { XpBar } from "@/components/ui/XpBar";
 import { useGame } from "./GameProvider";
 
-type IconName = "today" | "quests" | "world" | "skills" | "trophies" | "shop" | "settings";
+type IconName = "today" | "quests" | "calendar" | "world" | "skills" | "trophies" | "shop" | "wallet" | "settings" | "more";
 
 function Icon({ name }: { name: IconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "square" as const, strokeLinejoin: "miter" as const };
@@ -14,6 +14,23 @@ function Icon({ name }: { name: IconName }) {
     <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" aria-hidden>
       {name === "today" && <path {...common} d="M13 2 4 14h7l-1 8 9-12h-7z" />}
       {name === "quests" && <path {...common} d="M5 22V3h12l-2.5 4.5L17 12H5" />}
+      {name === "calendar" && (
+        <g {...common}>
+          <rect x="3" y="5" width="18" height="16" />
+          <path d="M3 10h18M8 3v4M16 3v4M7 14h2M11 14h2M15 14h2M7 17h2M11 17h2" />
+        </g>
+      )}
+      {name === "wallet" && (
+        <g {...common}>
+          <path d="M3 7h16v13H3zM3 7l12-4v4" />
+          <path d="M14 12h7v4h-7z" />
+        </g>
+      )}
+      {name === "more" && (
+        <g {...common}>
+          <path d="M4 7h16M4 12h16M4 17h16" />
+        </g>
+      )}
       {name === "world" && (
         <g {...common}>
           <circle cx="12" cy="12" r="9" />
@@ -47,16 +64,32 @@ export function AppShell({ children, accountActions }: { children: ReactNode; ac
   const { basePath, mode, canEdit, summary, data, progress, goldBalance } = useGame();
   const pathname = usePathname();
   const root = basePath || "/";
-  const items: NavItem[] = [
-    { href: root, label: "Today", icon: "today" },
-    { href: `${basePath}/quests`, label: "Quests", icon: "quests" },
+  const all: (NavItem & { ownerOnly?: boolean; primary?: boolean })[] = [
+    { href: root, label: "Today", icon: "today", primary: true },
+    { href: `${basePath}/quests`, label: "Quests", icon: "quests", primary: true },
+    { href: `${basePath}/calendar`, label: "Calendar", icon: "calendar", ownerOnly: true, primary: true },
     { href: `${basePath}/world`, label: "World", icon: "world" },
     { href: `${basePath}/skills`, label: "Skills", icon: "skills" },
     { href: `${basePath}/trophies`, label: "Trophies", icon: "trophies" },
-    ...(canEdit ? [{ href: `${basePath}/shop`, label: "Shop", icon: "shop" as const }] : []),
+    { href: `${basePath}/shop`, label: "Shop", icon: "shop", ownerOnly: true },
+    { href: `${basePath}/wallet`, label: "Wallet", icon: "wallet", ownerOnly: true, primary: true },
   ];
+  const items: NavItem[] = all.filter((i) => canEdit || !i.ownerOnly);
   const isActive = (href: string) => (href === root ? pathname === root : pathname.startsWith(href));
   const settingsHref = mode === "owner" ? "/settings" : null;
+  // Phones: up to 5 tabs fit; with more, show the main ones plus a "More" sheet.
+  const useMore = items.length > 5;
+  const phoneTabs = useMore ? all.filter((i) => i.primary && (canEdit || !i.ownerOnly)) : items;
+  const moreItems = useMore ? items.filter((i) => !phoneTabs.includes(i)) : [];
+  const [moreOpen, setMoreOpen] = useState(false);
+  useEffect(() => setMoreOpen(false), [pathname]);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMoreOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [moreOpen]);
+  const moreActive = moreItems.some((i) => isActive(i.href)) || (settingsHref !== null && pathname.startsWith(settingsHref));
 
   return (
     <div className="min-h-dvh lg:pl-60">
@@ -131,7 +164,7 @@ export function AppShell({ children, accountActions }: { children: ReactNode; ac
           <span className="truncate font-display text-lg uppercase">{data.displayName}</span>
         </Link>
         {canEdit && <span className="font-label text-sm font-extrabold text-volt tabular-nums">◆ {goldBalance.toLocaleString()}</span>}
-        {settingsHref && (
+        {settingsHref && !useMore && (
           <Link href={settingsHref} aria-label="Settings" className="p-1 text-muted hover:text-paper">
             <Icon name="settings" />
           </Link>
@@ -140,12 +173,43 @@ export function AppShell({ children, accountActions }: { children: ReactNode; ac
 
       <div className="pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-12">{children}</div>
 
+      {/* ---------- "More" sheet (phones) ---------- */}
+      {moreOpen && (
+        <div className="fixed inset-0 z-30 bg-ink/70 lg:hidden" onClick={() => setMoreOpen(false)}>
+          <nav
+            aria-label="More"
+            onClick={(e) => e.stopPropagation()}
+            className="slash-panel absolute inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] border-l-4 border-crimson bg-ink-2 p-3"
+          >
+            <ul className="grid grid-cols-2 gap-2">
+              {[...moreItems, ...(settingsHref ? [{ href: settingsHref, label: "Settings", icon: "settings" as const }] : [])].map((item) => (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    aria-current={isActive(item.href) ? "page" : undefined}
+                    className={`skew-box flex items-center gap-3 px-4 py-3 font-label text-base font-extrabold tracking-wider uppercase ${
+                      isActive(item.href) ? "bg-crimson text-paper" : "bg-ink-3 text-paper"
+                    }`}
+                  >
+                    <Icon name={item.icon} />
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            {accountActions && (
+              <div className="mt-3 border-t border-ink-3 px-2 pt-3 font-label text-sm font-extrabold tracking-widest text-muted uppercase">{accountActions}</div>
+            )}
+          </nav>
+        </div>
+      )}
+
       {/* ---------- Tab bar (phones) ---------- */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 flex border-t-4 border-crimson bg-ink-2 pb-[env(safe-area-inset-bottom)] lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 flex border-t-4 border-crimson bg-ink-2 pb-[env(safe-area-inset-bottom)] lg:hidden"
       >
-        {items.map((item) => (
+        {phoneTabs.map((item) => (
           <Link
             key={item.href}
             href={item.href}
@@ -160,6 +224,21 @@ export function AppShell({ children, accountActions }: { children: ReactNode; ac
             {item.label}
           </Link>
         ))}
+        {useMore && (
+          <button
+            onClick={() => setMoreOpen((o) => !o)}
+            aria-expanded={moreOpen}
+            aria-label="More sections"
+            className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 pt-2 pb-2 font-label text-[10px] font-extrabold tracking-wide uppercase sm:text-[11px] sm:tracking-wider ${
+              moreActive || moreOpen ? "text-paper" : "text-muted"
+            }`}
+          >
+            <span className={`skew-box px-2.5 py-1 ${moreActive ? "bg-crimson" : moreOpen ? "bg-ink-3" : ""}`}>
+              <Icon name="more" />
+            </span>
+            More
+          </button>
+        )}
       </nav>
     </div>
   );

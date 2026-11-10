@@ -4,6 +4,8 @@ import { gameConfig } from "./game/config";
 import { type LogEntry, type Quest, type SheetData, toDay } from "./game/types";
 import { newlyEarned } from "./game/achievements";
 import type { LootItem, Purchase } from "./game/loot";
+import type { CalEvent } from "./calendar/ics";
+import type { MoneyTx } from "./game/finance";
 import type { Season, SeasonGoal } from "./game/seasons";
 import type { Skill } from "./game/skills";
 import { buildStats } from "./game/stats";
@@ -88,6 +90,13 @@ export const sampleQuests: Quest[] = [
   },
 ];
 
+/** A one-step task with a custom reward, like "Math lecture → buy new clothes". */
+export const sampleTasks: Quest[] = [
+  { id: "q4", kind: "side", title: "Math lecture", domain: "mind", xpReward: 60, goldReward: 6, objectives: [{ id: "o15", title: "Math lecture", done: false }] },
+];
+
+export const sampleRewards: Record<string, string> = { q4: "Buy new clothes", d2: "One episode of a show" };
+
 export const sampleDailies: Quest[] = [
   { id: "d1", kind: "daily", title: "Meditate 10 min", domain: "spirit", xpReward: 15, goldReward: 2, objectives: [] },
   { id: "d2", kind: "daily", title: "Read 10 pages", domain: "mind", xpReward: 15, goldReward: 2, objectives: [] },
@@ -143,7 +152,7 @@ export function buildSampleWorld(now: Date): SampleWorld {
   ];
   const completedOn = [addDays(today, -50)];
   const pinned = new Set(["q1", "q3"]);
-  const quests = sampleQuests.map((q) => (pinned.has(q.id) ? { ...q, seasonId: "season-now" } : q));
+  const quests = [...sampleQuests, ...sampleTasks].map((q) => (pinned.has(q.id) ? { ...q, seasonId: "season-now" } : q));
   counts.questsCompleted = completedOn.length;
   const stats = buildStats({ days, restDays, today, totals, skills: sampleSkills, ...counts });
   // Sample achievements already earned, dated a few days back.
@@ -173,6 +182,49 @@ export function buildSampleWorld(now: Date): SampleWorld {
       seasons,
       closedSeasonGoals,
       completedOn,
+      rewards: sampleRewards,
+      extrasReady: true,
     },
   };
+}
+
+/** About a month and a half of made-up spending for the Wallet preview. */
+export function buildSampleTxs(today: string): MoneyTx[] {
+  const rows: [number, MoneyTx["kind"], number, string, string | null][] = [
+    [-40, "income", 3200, "Salary", "October pay"], [-38, "expense", 1100, "Bills", "Rent"], [-36, "expense", 64.2, "Groceries", null],
+    [-33, "expense", 18.5, "Food", "Ramen"], [-30, "expense", 45, "Fun", "Concert"], [-27, "expense", 52.8, "Groceries", null],
+    [-24, "expense", 12, "Transport", null], [-20, "expense", 89.99, "Shopping", "Running shoes"], [-18, "expense", 23, "Food", null],
+    [-15, "expense", 30, "Education", "Math workbook"], [-10, "income", 3200, "Salary", "November pay"], [-9, "expense", 1100, "Bills", "Rent"],
+    [-8, "expense", 71.4, "Groceries", null], [-6, "expense", 14.5, "Food", "Lunch with Sam"], [-5, "expense", 9.8, "Transport", null],
+    [-4, "expense", 120, "Shopping", "Winter jacket"], [-3, "income", 150, "Side income", "Tutoring"], [-2, "expense", 42.3, "Groceries", null],
+    [-1, "expense", 6.5, "Food", "Coffee"], [0, "expense", 11, "Transport", null],
+  ];
+  return rows.map(([back, kind, amount, category, note], i) => ({
+    id: `tx-${i}`, occurredOn: addDays(today, back), kind, amount, category, note, purchaseId: null,
+  }));
+}
+
+/** Sample calendars with repeating classes, the gym, a trip and a birthday. */
+export function buildSampleEvents(today: string, timeZoneOffsetMinutes: number): { feeds: { id: string; name: string; color: string; host: string }[]; events: CalEvent[] } {
+  const feeds = [
+    { id: "feed-classes", name: "Classes", color: "cobalt", host: "calendar.google.com" },
+    { id: "feed-personal", name: "Personal", color: "crimson", host: "p01-caldav.icloud.com" },
+  ];
+  const at = (day: string, hhmm: string) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return new Date(Date.parse(`${day}T00:00:00Z`) + ((h * 60 + m) + timeZoneOffsetMinutes) * 60_000).toISOString();
+  };
+  const events: CalEvent[] = [];
+  const dow = (day: string) => (new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7; // 0 = Monday
+  for (let i = -45; i <= 60; i++) {
+    const day = addDays(today, i);
+    const w = dow(day);
+    if (w === 0 || w === 2) events.push({ id: `math-${day}`, feedId: "feed-classes", title: "Math lecture", location: "Room 204", allDay: false, start: at(day, "10:00"), end: at(day, "11:30") });
+    if (w === 3) events.push({ id: `cs-${day}`, feedId: "feed-classes", title: "CS lab", location: "Lab B", allDay: false, start: at(day, "14:00"), end: at(day, "16:00") });
+    if (w === 1 || w === 4) events.push({ id: `gym-${day}`, feedId: "feed-personal", title: "Gym", location: null, allDay: false, start: at(day, "18:00"), end: at(day, "19:00") });
+  }
+  events.push({ id: "dentist", feedId: "feed-personal", title: "Dentist", location: "Main St clinic", allDay: false, start: at(addDays(today, 2), "09:00"), end: at(addDays(today, 2), "09:45") });
+  events.push({ id: "trip", feedId: "feed-personal", title: "Weekend trip", location: null, allDay: true, start: addDays(today, 11), end: addDays(today, 14) });
+  events.push({ id: "bday", feedId: "feed-personal", title: "Mom's birthday", location: null, allDay: true, start: addDays(today, 5), end: addDays(today, 6) });
+  return { feeds, events: events.sort((a, b) => a.start.localeCompare(b.start)) };
 }

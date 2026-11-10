@@ -51,6 +51,15 @@
 - [x] Past season recaps (XP, active days, best streak, goals, levels gained, rank S–D)
 - [x] No database changes needed (seasons and quest links were already in 0001)
 
+## Extras (requested)
+- [x] Custom real-world rewards on quests and dailies, delivered to the inventory on completion
+- [x] One-step tasks (quests without objectives)
+- [x] Wallet: income/expenses, categories, monthly budget, category and daily charts
+- [x] "Use it" on an inventory item can log what it cost to the wallet
+- [x] Calendar: Google / Apple calendars via private iCal links, month + agenda views, Life RPG day markers
+- [x] Navigation: 8 sections in the sidebar; phones get Today / Quests / Calendar / Wallet + a "More" sheet
+- [ ] Run `0005_rewards_wallet_calendar.sql` on the live database
+
 ## Phase 6: Automatic imports
 - [ ] GitHub commits → Craft
 - [ ] Strava → Body

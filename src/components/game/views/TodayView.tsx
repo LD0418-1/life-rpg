@@ -133,6 +133,7 @@ function Dailies() {
               <li key={d.id}>
                 <QuestEditor
                   quest={d}
+                  reward={canEdit && data.extrasReady ? (data.rewards[d.id] ?? "") : undefined}
                   onSave={(edit) => saveQuest(d, edit)}
                   onAddObjective={async () => false}
                   onRemoveObjective={() => {}}
@@ -145,7 +146,14 @@ function Dailies() {
                   <span className={`skew-box grid h-6 w-8 place-items-center font-display text-sm ${d.doneToday ? "bg-crimson" : "bg-ink-3"}`}>
                     {d.doneToday ? "✓" : ""}
                   </span>
-                  <span className={`flex-1 ${d.doneToday ? "text-muted line-through" : ""}`}>{d.title}</span>
+                  <span className={`min-w-0 flex-1 ${d.doneToday ? "text-muted line-through" : ""}`}>
+                    {d.title}
+                    {canEdit && data.rewards[d.id] && (
+                      <span className="block font-label text-[11px] font-extrabold tracking-widest text-volt uppercase no-underline">
+                        ◈ <span className="normal-case tracking-normal">{data.rewards[d.id]}</span>
+                      </span>
+                    )}
+                  </span>
                   <span className="font-label text-sm font-extrabold text-muted">+{d.xpReward} XP</span>
                 </button>
                 {canEdit && (

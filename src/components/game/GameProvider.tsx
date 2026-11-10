@@ -37,6 +37,8 @@ interface Banner {
 
 export interface Game {
   data: SheetData;
+  /** For pages that load their own data (Wallet, Calendar). */
+  backend: SheetBackend;
   mode: GameMode;
   canEdit: boolean;
   /** "" for the live site, "/preview" for the preview. */
@@ -68,7 +70,8 @@ export interface Game {
   createLoot: (input: NewLootInput) => Promise<boolean>;
   archiveLoot: (item: LootItem) => void;
   buyLoot: (item: LootItem) => void;
-  redeemPurchase: (p: Purchase) => void;
+  /** Marks an inventory item used, optionally logging what it cost. Returns true when done. */
+  redeemPurchase: (p: Purchase, spent?: { amount: number; category: string }) => Promise<boolean>;
   createSeason: (input: NewSeasonInput) => Promise<boolean>;
   updateSeason: (season: Season, edit: SeasonEdit) => Promise<boolean>;
   setQuestSeason: (q: Quest, seasonId: string | null) => void;
@@ -206,6 +209,12 @@ export function GameProvider({
     scheduleAchievementCheck();
   }
 
+  /** A quest's custom reward landed in the inventory. */
+  function addGrant(grant: Purchase) {
+    setData((d) => (d.shop ? { ...d, shop: { ...d.shop, purchases: [grant, ...d.shop.purchases] } } : d));
+    pushBanner({ kicker: "Reward earned", title: grant.name ?? "Reward", sub: "It's waiting in your inventory (Shop)" });
+  }
+
   const logActivity = async (a: Activity, options: LogOptions = { difficulty }) => {
     const saved = await act(a.slug, async () => {
       const entry = await backend.logActivity(a.slug, options);
@@ -251,6 +260,7 @@ export function GameProvider({
 
   const game: Game = {
     data,
+    backend,
     mode,
     canEdit,
     basePath,
@@ -276,13 +286,14 @@ export function GameProvider({
     removeEntry: (e) => void removeEntry(e),
     completeDaily: (q) =>
       void act(q.id, async () => {
-        const entry = await backend.completeDaily(q.id);
+        const { entry, grant } = await backend.completeDaily(q.id);
         setData((d) => ({ ...d, dailies: d.dailies.map((x) => (x.id === q.id ? { ...x, doneToday: true } : x)) }));
         if (entry) applyEntry(entry, q.id);
+        if (grant) addGrant(grant);
       }),
     toggleObjective: (q, objectiveId, done) =>
       void act(`${q.id}:${objectiveId}`, async () => {
-        const reward = await backend.setObjective(q.id, objectiveId, done);
+        const { entry: reward, grant } = await backend.setObjective(q.id, objectiveId, done);
         setData((d) => ({
           ...d,
           quests: d.quests.map((x) =>
@@ -295,6 +306,7 @@ export function GameProvider({
           setData((d) => ({ ...d, completedOn: [...d.completedOn, d.today] }));
           applyEntry(reward, q.id, q.isBoss ? q : undefined);
         }
+        if (grant) addGrant(grant);
       }),
     abandonQuest: (q) => {
       if (!window.confirm(`Abandon "${q.title}"? It disappears from your quest log.`)) return;
@@ -306,12 +318,25 @@ export function GameProvider({
     createQuest: async (input) =>
       (await act("new-quest", async () => {
         const quest = await backend.createQuest(input);
-        setData((d) => (quest.kind === "daily" ? { ...d, dailies: [...d.dailies, quest] } : { ...d, quests: [...d.quests, quest] }));
+        const reward = input.reward?.trim();
+        setData((d) => ({
+          ...(quest.kind === "daily" ? { ...d, dailies: [...d.dailies, quest] } : { ...d, quests: [...d.quests, quest] }),
+          rewards: reward ? { ...d.rewards, [quest.id]: reward } : d.rewards,
+        }));
         return true as const;
       })) === true,
     saveQuest: async (q, edit) =>
       (await act(`edit:${q.id}`, async () => {
         replaceQuest(await backend.updateQuest(q.id, edit));
+        if (edit.reward !== undefined) {
+          const reward = edit.reward.trim();
+          setData((d) => {
+            const rewards = { ...d.rewards };
+            if (reward) rewards[q.id] = reward;
+            else delete rewards[q.id];
+            return { ...d, rewards };
+          });
+        }
         return true as const;
       })) === true,
     addObjective: async (q, title) =>
@@ -370,11 +395,12 @@ export function GameProvider({
         scheduleAchievementCheck();
       });
     },
-    redeemPurchase: (p) =>
-      void act(`purchase:${p.id}`, async () => {
-        const updated = await backend.redeemPurchase(p.id);
-        setData((d) => (d.shop ? { ...d, shop: { ...d.shop, purchases: d.shop.purchases.map((x) => (x.id === p.id ? updated : x)) } } : d));
-      }),
+    redeemPurchase: async (p, spent) =>
+      (await act(`purchase:${p.id}`, async () => {
+        const { purchase } = await backend.redeemPurchase(p.id, spent);
+        setData((d) => (d.shop ? { ...d, shop: { ...d.shop, purchases: d.shop.purchases.map((x) => (x.id === p.id ? purchase : x)) } } : d));
+        return true as const;
+      })) === true,
     createSeason: async (input) =>
       (await act("new-season", async () => {
         const season = await backend.createSeason(input);

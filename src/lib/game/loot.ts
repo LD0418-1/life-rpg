@@ -11,7 +11,12 @@ export interface LootItem {
 
 export interface Purchase {
   id: string;
-  itemId: string;
+  /** Null for rewards earned from quests. */
+  itemId: string | null;
+  /** The reward's name (quest rewards; shop items use the item's name). */
+  name?: string | null;
+  questId?: string | null;
+  source?: "shop" | "quest";
   cost: number;
   purchasedAt: string;
   redeemedAt: string | null;

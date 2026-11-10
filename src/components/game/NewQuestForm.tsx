@@ -12,7 +12,16 @@ const fieldClass = "w-full bg-ink-3 px-3 py-2 text-paper outline-none focus:ring
 const labelClass = "mb-1 block font-label text-sm font-extrabold tracking-widest text-muted uppercase";
 
 /** Collapsible form for starting a new quest or daily. */
-export function NewQuestForm({ onCreate, season }: { onCreate: (input: NewQuestInput) => Promise<boolean>; season?: Season | null }) {
+export function NewQuestForm({
+  onCreate,
+  season,
+  rewardsEnabled = true,
+}: {
+  onCreate: (input: NewQuestInput) => Promise<boolean>;
+  season?: Season | null;
+  /** False until the 0005 database update: custom rewards can't be saved yet. */
+  rewardsEnabled?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<NewQuestInput["kind"]>("main");
   const [title, setTitle] = useState("");
@@ -20,6 +29,7 @@ export function NewQuestForm({ onCreate, season }: { onCreate: (input: NewQuestI
   const [xp, setXp] = useState(DEFAULT_QUEST_XP.main);
   const [isBoss, setIsBoss] = useState(false);
   const [forSeason, setForSeason] = useState(false);
+  const [reward, setReward] = useState("");
   const [objectives, setObjectives] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -34,11 +44,12 @@ export function NewQuestForm({ onCreate, season }: { onCreate: (input: NewQuestI
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const ok = await onCreate({ kind, title, domain, xpReward: xp, isBoss, objectives: objectives.split("\n"), seasonId: forSeason && season && kind !== "daily" ? season.id : null });
+    const ok = await onCreate({ kind, title, domain, xpReward: xp, isBoss, objectives: objectives.split("\n"), reward: rewardsEnabled ? reward : undefined, seasonId: forSeason && season && kind !== "daily" ? season.id : null });
     setSaving(false);
     if (ok) {
       setTitle("");
       setObjectives("");
+      setReward("");
       setIsBoss(false);
       setOpen(false);
     }
@@ -66,7 +77,7 @@ export function NewQuestForm({ onCreate, season }: { onCreate: (input: NewQuestI
 
         <div>
           <label htmlFor="quest-title" className={labelClass}>Title</label>
-          <input id="quest-title" required maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} className={fieldClass} placeholder={kind === "daily" ? "Stretch 10 minutes" : "Learn to play a full song"} />
+          <input id="quest-title" required maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} className={fieldClass} placeholder={kind === "daily" ? "Stretch 10 minutes" : kind === "side" ? "Math lecture" : "Learn to play a full song"} />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -87,7 +98,7 @@ export function NewQuestForm({ onCreate, season }: { onCreate: (input: NewQuestI
         {kind !== "daily" && (
           <>
             <div>
-              <label htmlFor="quest-objectives" className={labelClass}>Objectives · one per line</label>
+              <label htmlFor="quest-objectives" className={labelClass}>Objectives · one per line · optional</label>
               <textarea id="quest-objectives" rows={4} value={objectives} onChange={(e) => setObjectives(e.target.value)} className={fieldClass} placeholder={"Learn the chords\nPlay it slowly\nPlay it at full speed"} />
             </div>
             <label className="flex items-center gap-3">
@@ -103,6 +114,25 @@ export function NewQuestForm({ onCreate, season }: { onCreate: (input: NewQuestI
           </>
         )}
 
+        {rewardsEnabled && (
+        <div>
+          <label htmlFor="quest-reward" className={labelClass}>Your reward · optional</label>
+          <input
+            id="quest-reward"
+            maxLength={120}
+            value={reward}
+            onChange={(e) => setReward(e.target.value)}
+            className={fieldClass}
+            placeholder={kind === "daily" ? "One episode of a show" : "Buy new clothes"}
+          />
+          <p className="mt-1 text-xs text-muted">
+            A real treat you give yourself for finishing it. It lands in your inventory{kind === "daily" ? " every time you complete it" : ""}. Only you can see it.
+          </p>
+        </div>
+        )}
+        {kind !== "daily" && (
+          <p className="-mt-2 text-xs text-muted">No objectives? Then it&apos;s a one-step task: tick it once to finish.</p>
+        )}
         <div className="flex gap-3">
           <SlashButton type="submit" disabled={saving}>{saving ? "Saving…" : "Start quest"}</SlashButton>
           <SlashButton type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</SlashButton>

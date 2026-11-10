@@ -9,6 +9,7 @@ import {
   checkAddObjective,
   checkRemoveObjective,
   cleanNote,
+  cleanReward,
   cleanTitle,
   cleanUnits,
   cleanXpReward,
@@ -17,11 +18,17 @@ import {
 } from "@/lib/game/quests";
 import type { LogEntry, LogOptions, NewQuestInput, Quest, QuestEdit } from "@/lib/game/types";
 import { checkPlanRest, checkUnplanRest, computeProgress } from "@/lib/game/streaks";
-import { dayInTimeZone, scoreEntry } from "@/lib/game/xp";
+import { scoreEntry } from "@/lib/game/xp";
 import { createClient } from "@/lib/supabase/server";
+import { type ActionResult, ownerContext, run } from "@/lib/server/action-helpers";
 import {
   ENTRY_COLUMNS,
   type LogEntryRow,
+  type MoneyTxRow,
+  type PurchaseRow,
+  TX_COLUMNS,
+  toMoneyTx,
+  toPurchase,
   QUEST_COLUMNS,
   type QuestRow,
   SEASON_COLUMNS,
@@ -36,7 +43,9 @@ import { gameConfig } from "@/lib/game/config";
 import { type LootItem, type NewLootInput, type Purchase, normalizeNewLoot } from "@/lib/game/loot";
 import { type NewSkillInput, type Skill, deleteBlocker, normalizeNewSkill } from "@/lib/game/skills";
 import { checkTheme } from "@/lib/game/themes";
-import type { AchievementSync } from "@/lib/game/types";
+import type { AchievementSync, QuestCompletion } from "@/lib/game/types";
+import { type MoneyTx, normalizeTx } from "@/lib/game/finance";
+import { isMissingRelation } from "@/lib/supabase/streak-data";
 import { summarizeTotals } from "@/lib/game/xp";
 import {
   NEEDS_0004,
@@ -53,27 +62,9 @@ import { loadStreakData } from "@/lib/supabase/streak-data";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-/** Returns a client acting as the owner, plus today's date in their time zone. Throws for anyone else. */
-async function ownerContext() {
-  const supabase = await createClient();
-  const { data: isOwner } = await supabase.rpc("is_owner");
-  if (isOwner !== true) throw new Error("Only the owner can do that. Try logging in again.");
-  const { data: profile } = await supabase.from("profile").select("timezone").single();
-  const today = dayInTimeZone(new Date(), profile?.timezone ?? "UTC");
-  return { supabase, today };
-}
+export type { ActionResult } from "@/lib/server/action-helpers";
 
-/** Actions return errors as values: Next.js hides thrown error messages in production. */
-export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
-
-async function run<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
-  try {
-    return { ok: true, data: await fn() };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Something went wrong." };
-  }
-}
-
+const NEEDS_0005 = "This needs a one-time database update first: run supabase/migrations/0005_rewards_wallet_calendar.sql in the Supabase SQL Editor.";
 
 /** Loads one active quest with its objectives. */
 async function loadActiveQuest(supabase: Supabase, questId: string): Promise<Quest> {
@@ -139,29 +130,60 @@ export async function deleteEntryAction(entryId: string): Promise<ActionResult<v
 
 // ---------- Quests ----------
 
-export async function completeDailyAction(questId: string): Promise<ActionResult<LogEntry | null>> {
+/** After a quest pays out: the custom reward it just put in your inventory, if it has one. */
+async function latestGrant(supabase: Supabase, questId: string): Promise<Purchase | null> {
+  const { data: reward, error } = await supabase.from("quest_rewards").select("quest_id").eq("quest_id", questId).maybeSingle();
+  if (error || !reward) return null; // no reward, or 0005 not run yet
+  const { data } = await supabase
+    .from("loot_purchases")
+    .select("*")
+    .eq("quest_id", questId)
+    .eq("source", "quest")
+    .order("purchased_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<PurchaseRow>();
+  return data ? toPurchase(data) : null;
+}
+
+export async function completeDailyAction(questId: string): Promise<ActionResult<QuestCompletion>> {
   return run(async () => {
     const { supabase, today } = await ownerContext();
     const { data, error } = await supabase.rpc("complete_daily", { p_quest_id: questId, p_day: today });
     if (error) throw new Error(error.message);
     const row = (data as LogEntryRow[] | null)?.[0];
-    return row ? toLogEntry(row) : null;
+    if (!row) return { entry: null, grant: null };
+    return { entry: toLogEntry(row), grant: await latestGrant(supabase, questId) };
   });
 }
 
-export async function setObjectiveAction(objectiveId: string, done: boolean): Promise<ActionResult<LogEntry | null>> {
+export async function setObjectiveAction(questId: string, objectiveId: string, done: boolean): Promise<ActionResult<QuestCompletion>> {
   return run(async () => {
     const { supabase, today } = await ownerContext();
     const { data, error } = await supabase.rpc("set_objective", { p_objective_id: objectiveId, p_done: done, p_day: today });
     if (error) throw new Error(error.message);
     const row = (data as LogEntryRow[] | null)?.[0];
-    return row ? toLogEntry(row) : null;
+    if (!row) return { entry: null, grant: null };
+    return { entry: toLogEntry(row), grant: await latestGrant(supabase, questId) };
   });
+}
+
+/** Saves (or removes, when empty) a quest's custom reward. */
+async function saveReward(supabase: Supabase, questId: string, raw: string | undefined) {
+  if (raw === undefined) return;
+  const reward = cleanReward(raw);
+  const { error } = reward
+    ? await supabase.from("quest_rewards").upsert({ quest_id: questId, reward }, { onConflict: "quest_id" })
+    : await supabase.from("quest_rewards").delete().eq("quest_id", questId);
+  if (error) {
+    if (isMissingRelation(error)) throw new Error(NEEDS_0005);
+    throw new Error(error.message);
+  }
 }
 
 export async function createQuestAction(input: NewQuestInput): Promise<ActionResult<Quest>> {
   return run(async () => {
     const quest = normalizeNewQuest(input);
+    const reward = cleanReward(input.reward);
     const { supabase } = await ownerContext();
     const { data: created, error } = await supabase
       .from("quests")
@@ -187,6 +209,7 @@ export async function createQuestAction(input: NewQuestInput): Promise<ActionRes
         throw new Error(objError.message);
       }
     }
+    if (reward) await saveReward(supabase, created.id, reward);
     return loadActiveQuest(supabase, created.id);
   });
 }
@@ -202,6 +225,7 @@ export async function updateQuestAction(questId: string, edit: QuestEdit): Promi
       .update({ title, xp_reward: xpReward, gold_reward: goldForQuestXp(xpReward) })
       .eq("id", questId);
     if (error) throw new Error(error.message);
+    await saveReward(supabase, questId, edit.reward);
     return loadActiveQuest(supabase, questId);
   });
 }
@@ -337,8 +361,6 @@ export async function archiveLootAction(itemId: string): Promise<ActionResult<vo
   });
 }
 
-type PurchaseRow = { id: string; item_id: string; cost: number; purchased_at: string; redeemed_at: string | null };
-const toPurchase = (p: PurchaseRow): Purchase => ({ id: p.id, itemId: p.item_id, cost: p.cost, purchasedAt: p.purchased_at, redeemedAt: p.redeemed_at });
 
 export async function buyLootAction(itemId: string): Promise<ActionResult<Purchase>> {
   return run(async () => {
@@ -352,19 +374,32 @@ export async function buyLootAction(itemId: string): Promise<ActionResult<Purcha
   });
 }
 
-export async function redeemPurchaseAction(purchaseId: string): Promise<ActionResult<Purchase>> {
+export async function redeemPurchaseAction(
+  purchaseId: string,
+  spent?: { amount: number; category: string },
+): Promise<ActionResult<{ purchase: Purchase; tx: MoneyTx | null }>> {
   return run(async () => {
-    const { supabase } = await ownerContext();
+    const { supabase, today } = await ownerContext();
+    // Check the spend first, so a typo doesn't use up the reward.
+    const spend = spent ? normalizeTx({ occurredOn: today, kind: "expense", amount: spent.amount, category: spent.category || "Rewards", note: "" }) : null;
     const { data, error } = await supabase
       .from("loot_purchases")
       .update({ redeemed_at: new Date().toISOString() })
       .eq("id", purchaseId)
       .is("redeemed_at", null)
-      .select("id, item_id, cost, purchased_at, redeemed_at")
+      .select("*")
       .maybeSingle<PurchaseRow>();
     if (error) throw new Error(error.message);
     if (!data) throw new Error("That reward was already used.");
-    return toPurchase(data);
+    const purchase = toPurchase(data);
+    if (!spend) return { purchase, tx: null };
+    const { data: txRow, error: txError } = await supabase
+      .from("money_tx")
+      .insert({ occurred_on: spend.occurredOn, kind: "expense", amount: spend.amount, category: spend.category, note: purchase.name ?? null, purchase_id: purchase.id })
+      .select(TX_COLUMNS)
+      .single<MoneyTxRow>();
+    if (txError) throw new Error(isMissingRelation(txError) ? NEEDS_0005 : `Marked as used, but the spend wasn't saved: ${txError.message}`);
+    return { purchase, tx: toMoneyTx(txRow) };
   });
 }
 

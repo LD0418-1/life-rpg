@@ -10,12 +10,15 @@ const labelClass = "mb-1 block font-label text-sm font-extrabold tracking-widest
 /** Inline editor for a quest or daily: title, XP, and (for quests) objectives. */
 export function QuestEditor({
   quest,
+  reward: initialReward,
   onSave,
   onAddObjective,
   onRemoveObjective,
   onClose,
 }: {
   quest: Quest;
+  /** Current custom reward; undefined hides the field (visitors, or before the 0005 update). */
+  reward?: string;
   onSave: (edit: QuestEdit) => Promise<boolean>;
   onAddObjective: (title: string) => Promise<boolean>;
   onRemoveObjective: (objectiveId: string) => void;
@@ -23,6 +26,7 @@ export function QuestEditor({
 }) {
   const [title, setTitle] = useState(quest.title);
   const [xp, setXp] = useState(quest.xpReward);
+  const [reward, setReward] = useState(initialReward ?? "");
   const [newObjective, setNewObjective] = useState("");
   const [saving, setSaving] = useState(false);
   const isDaily = quest.kind === "daily";
@@ -31,7 +35,7 @@ export function QuestEditor({
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const ok = await onSave({ title, xpReward: xp });
+    const ok = await onSave({ title, xpReward: xp, ...(initialReward !== undefined ? { reward } : {}) });
     setSaving(false);
     if (ok) onClose();
   };
@@ -54,6 +58,19 @@ export function QuestEditor({
             <input id={`edit-xp-${quest.id}`} type="number" min={0} max={5000} value={xp} onChange={(e) => setXp(Number(e.target.value))} className={fieldClass} />
           </div>
         </div>
+        {initialReward !== undefined && (
+          <div>
+            <label htmlFor={`edit-reward-${quest.id}`} className={labelClass}>Your reward · optional</label>
+            <input
+              id={`edit-reward-${quest.id}`}
+              maxLength={120}
+              value={reward}
+              onChange={(e) => setReward(e.target.value)}
+              placeholder="Buy new clothes"
+              className={fieldClass}
+            />
+          </div>
+        )}
         <div className="flex gap-3">
           <SlashButton type="submit" disabled={saving}>{saving ? "Saving…" : "Save"}</SlashButton>
           <SlashButton type="button" variant="ghost" onClick={onClose}>Done</SlashButton>

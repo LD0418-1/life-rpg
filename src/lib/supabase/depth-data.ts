@@ -6,6 +6,7 @@ import type { Skill } from "@/lib/game/skills";
 import { buildStats } from "@/lib/game/stats";
 import type { DomainTotals } from "@/lib/game/xp";
 import type { createClient } from "./server";
+import { type PurchaseRow, toPurchase } from "./rows";
 import type { StreakData } from "./streak-data";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -50,16 +51,13 @@ export async function loadSkills(supabase: Supabase): Promise<Skill[]> {
 export async function loadShop(supabase: Supabase): Promise<{ items: LootItem[]; purchases: Purchase[] }> {
   const [items, purchases] = await Promise.all([
     supabase.from("loot_items").select("id, name, description, cost, repeatable").eq("archived", false).order("cost"),
-    supabase.from("loot_purchases").select("id, item_id, cost, purchased_at, redeemed_at").order("purchased_at", { ascending: false }),
+    supabase.from("loot_purchases").select("*").order("purchased_at", { ascending: false }),
   ]);
   check(items, "the shop");
   check(purchases, "your purchases");
   return {
     items: (items.data ?? []) as LootItem[],
-    purchases: (purchases.data ?? []).map((p) => ({
-      id: p.id as string, itemId: p.item_id as string, cost: p.cost as number,
-      purchasedAt: p.purchased_at as string, redeemedAt: p.redeemed_at as string | null,
-    })),
+    purchases: ((purchases.data ?? []) as PurchaseRow[]).map(toPurchase),
   };
 }
 

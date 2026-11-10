@@ -5,6 +5,8 @@ import type { AchievementStats } from "./achievements";
 import type { LootItem, NewLootInput, Purchase } from "./loot";
 import type { NewSeasonInput, Season, SeasonEdit, SeasonGoal } from "./seasons";
 import type { NewSkillInput, Skill } from "./skills";
+import type { FinanceSettings, MoneyTx, NewTxInput } from "./finance";
+import type { CalEvent } from "../calendar/ics";
 
 export interface LogEntry {
   id: string;
@@ -62,6 +64,8 @@ export interface NewQuestInput {
   objectives: string[];
   /** Pin it as a goal of this season. */
   seasonId?: string | null;
+  /** Your own real-world reward for finishing it, e.g. "Buy new clothes". */
+  reward?: string;
 }
 
 /** Everything the character sheet shows. Loaded from Supabase, or built from sample data. */
@@ -99,6 +103,10 @@ export interface SheetData {
   closedSeasonGoals: SeasonGoal[];
   /** Days (YYYY-MM-DD) on which a main or side quest was completed. */
   completedOn: string[];
+  /** Owner only: custom rewards by quest id. */
+  rewards: Record<string, string>;
+  /** False until the 0005 database script (rewards, wallet, calendar) has been run. */
+  extrasReady: boolean;
 }
 
 export interface AchievementSync {
@@ -118,6 +126,30 @@ export interface LogOptions {
 export interface QuestEdit {
   title: string;
   xpReward: number;
+  /** Custom reward; empty string removes it. Leave undefined to keep it as is. */
+  reward?: string;
+}
+
+/** What finishing a daily or quest gave you. */
+export interface QuestCompletion {
+  entry: LogEntry | null;
+  /** The custom reward added to your inventory, if the quest had one. */
+  grant: Purchase | null;
+}
+
+export interface CalendarFeed {
+  id: string;
+  name: string;
+  color: string;
+  /** Just the host (e.g. calendar.google.com): the secret link never goes back to the browser. */
+  host: string;
+}
+
+export interface CalendarData {
+  feeds: CalendarFeed[];
+  events: CalEvent[];
+  /** Feeds that couldn't be loaded, with a readable reason. */
+  errors: { feedId: string; message: string }[];
 }
 
 /** What the sheet calls when you do something. Preview = in memory, live = Supabase. */
@@ -125,8 +157,8 @@ export interface SheetBackend {
   logActivity(slug: string, options: LogOptions): Promise<LogEntry>;
   /** Deletes a logged activity (quest rewards can't be deleted). */
   deleteEntry(entryId: string): Promise<void>;
-  completeDaily(questId: string): Promise<LogEntry | null>;
-  setObjective(questId: string, objectiveId: string, done: boolean): Promise<LogEntry | null>;
+  completeDaily(questId: string): Promise<QuestCompletion>;
+  setObjective(questId: string, objectiveId: string, done: boolean): Promise<QuestCompletion>;
   createQuest(input: NewQuestInput): Promise<Quest>;
   updateQuest(questId: string, edit: QuestEdit): Promise<Quest>;
   addObjective(questId: string, title: string): Promise<Quest>;
@@ -140,7 +172,16 @@ export interface SheetBackend {
   createLoot(input: NewLootInput): Promise<LootItem>;
   archiveLoot(itemId: string): Promise<void>;
   buyLoot(itemId: string): Promise<Purchase>;
-  redeemPurchase(purchaseId: string): Promise<Purchase>;
+  /** Marks an inventory item used; optionally logs what it cost in the wallet. */
+  redeemPurchase(purchaseId: string, spent?: { amount: number; category: string }): Promise<{ purchase: Purchase; tx: MoneyTx | null }>;
+  loadWallet(month: string): Promise<{ settings: FinanceSettings; txs: MoneyTx[] }>;
+  addTx(input: NewTxInput): Promise<MoneyTx>;
+  deleteTx(txId: string): Promise<void>;
+  saveWalletSettings(settings: FinanceSettings): Promise<FinanceSettings>;
+  /** Events between two days (inclusive), from your linked calendars. */
+  loadCalendar(fromDay: string, toDay: string): Promise<CalendarData>;
+  addFeed(input: { name: string; url: string; color: string }): Promise<CalendarFeed>;
+  deleteFeed(feedId: string): Promise<void>;
   createSeason(input: NewSeasonInput): Promise<Season>;
   updateSeason(seasonId: string, edit: SeasonEdit): Promise<Season>;
   setQuestSeason(questId: string, seasonId: string | null): Promise<void>;

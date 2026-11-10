@@ -8,6 +8,7 @@ import {
   checkAddObjective,
   checkRemoveObjective,
   cleanNote,
+  cleanReward,
   cleanTitle,
   cleanUnits,
   cleanXpReward,
@@ -20,7 +21,9 @@ import { buildStats } from "@/lib/game/stats";
 import { checkPlanRest, checkUnplanRest, computeProgress } from "@/lib/game/streaks";
 import type { LogEntry, Quest, SheetBackend } from "@/lib/game/types";
 import { addToTotals, scoreEntry } from "@/lib/game/xp";
-import { type SampleWorld, buildSampleWorld, sampleDailies } from "@/lib/sample-data";
+import { type SampleWorld, buildSampleEvents, buildSampleTxs, buildSampleWorld, sampleDailies } from "@/lib/sample-data";
+import { normalizeFeedUrl } from "@/lib/calendar/ics";
+import { type FinanceSettings, type MoneyTx, monthRange, normalizeFinanceSettings, normalizeTx } from "@/lib/game/finance";
 import { AppShell } from "./AppShell";
 import { GameProvider } from "./GameProvider";
 
@@ -37,6 +40,20 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
   let purchases: Purchase[] = structuredClone(sheet.shop?.purchases ?? []);
   let unlocked = { ...sheet.achievements.unlocked };
   let seasons: Season[] = structuredClone(sheet.seasons);
+  const rewards: Record<string, string> = { ...sheet.rewards };
+  let txs: MoneyTx[] = buildSampleTxs(today);
+  let walletSettings: FinanceSettings = { currency: "USD", monthlyBudget: 1800 };
+  const offset = new Date().getTimezoneOffset(); // sample events at local clock times
+  const cal = buildSampleEvents(today, offset);
+  let feeds = cal.feeds;
+  /** A quest's custom reward goes into the inventory when it's finished. */
+  const grantFor = (q: Quest): Purchase | null => {
+    const reward = rewards[q.id];
+    if (!reward) return null;
+    const p: Purchase = { id: id(), itemId: null, name: reward, questId: q.id, source: "quest", cost: 0, purchasedAt: new Date().toISOString(), redeemedAt: null };
+    purchases = [p, ...purchases];
+    return p;
+  };
   const quests = new Map<string, Quest>([...sheet.quests, ...sampleDailies].map((q) => [q.id, structuredClone(q)]));
   let n = 0;
   const id = () => `preview-${++n}`;
@@ -79,23 +96,25 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
     },
     async completeDaily(questId) {
       const q = quests.get(questId);
-      if (!q || q.doneToday) return null;
+      if (!q || q.doneToday) return { entry: null, grant: null };
       q.doneToday = true;
-      return reward(q);
+      return { entry: reward(q), grant: grantFor(q) };
     },
     async setObjective(questId, objectiveId, done) {
       const q = activeQuest(questId);
       q.objectives = q.objectives.map((o) => (o.id === objectiveId ? { ...o, done } : o));
-      if (!q.objectives.every((o) => o.done)) return null;
+      if (!q.objectives.every((o) => o.done)) return { entry: null, grant: null };
       q.completed = true;
       counts.questsCompleted++;
       if (q.isBoss) counts.bossesDefeated++;
-      return reward(q);
+      return { entry: reward(q), grant: grantFor(q) };
     },
     async createQuest(input) {
       const clean = normalizeNewQuest(input);
       const q: Quest = { ...clean, id: id(), seasonId: input.seasonId ?? null, objectives: clean.objectives.map((title) => ({ id: id(), title, done: false })) };
       quests.set(q.id, q);
+      const r = cleanReward(input.reward);
+      if (r) rewards[q.id] = r;
       return structuredClone(q);
     },
     async updateQuest(questId, edit) {
@@ -103,6 +122,11 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
       q.title = cleanTitle(edit.title);
       q.xpReward = cleanXpReward(edit.xpReward);
       q.goldReward = goldForQuestXp(q.xpReward);
+      if (edit.reward !== undefined) {
+        const r = cleanReward(edit.reward);
+        if (r) rewards[q.id] = r;
+        else delete rewards[q.id];
+      }
       return structuredClone(q);
     },
     async addObjective(questId, title) {
@@ -167,11 +191,49 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
       counts.purchases++;
       return p;
     },
-    async redeemPurchase(purchaseId) {
+    async redeemPurchase(purchaseId, spent) {
       const p = purchases.find((x) => x.id === purchaseId);
       if (!p || p.redeemedAt) throw new Error("That reward was already used.");
+      const spend = spent ? normalizeTx({ occurredOn: today, kind: "expense", amount: spent.amount, category: spent.category || "Rewards", note: "" }) : null;
       p.redeemedAt = new Date().toISOString();
-      return { ...p };
+      let tx: MoneyTx | null = null;
+      if (spend) {
+        const name = p.name ?? items.get(p.itemId ?? "")?.name ?? null;
+        tx = { ...spend, id: id(), note: name, purchaseId: p.id };
+        txs = [tx, ...txs];
+      }
+      return { purchase: { ...p }, tx };
+    },
+    async loadWallet(month) {
+      const { from, to } = monthRange(month);
+      return { settings: walletSettings, txs: txs.filter((t) => t.occurredOn >= from && t.occurredOn <= to).sort((a, b) => b.occurredOn.localeCompare(a.occurredOn)) };
+    },
+    async addTx(input) {
+      const tx: MoneyTx = { ...normalizeTx(input), id: id() };
+      txs = [tx, ...txs];
+      return tx;
+    },
+    async deleteTx(txId) {
+      txs = txs.filter((t) => t.id !== txId);
+    },
+    async saveWalletSettings(input) {
+      walletSettings = normalizeFinanceSettings(input);
+      return walletSettings;
+    },
+    async loadCalendar(fromDay, toDay) {
+      const lo = `${fromDay}`;
+      const hi = `${toDay}~`;
+      const shown = new Set(feeds.map((f) => f.id));
+      return { feeds, events: cal.events.filter((e) => shown.has(e.feedId) && e.end >= lo && e.start <= hi), errors: [] };
+    },
+    async addFeed(input) {
+      const url = normalizeFeedUrl(input.url);
+      const feed = { id: id(), name: input.name.trim().slice(0, 40) || "Calendar", color: input.color, host: new URL(url).hostname };
+      feeds = [...feeds, feed];
+      return feed;
+    },
+    async deleteFeed(feedId) {
+      feeds = feeds.filter((f) => f.id !== feedId);
     },
     async createSeason(input) {
       const clean = normalizeNewSeason(input, seasons, today);

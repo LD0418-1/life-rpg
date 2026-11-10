@@ -13,9 +13,9 @@ import {
 const quest = (done: boolean[]) => ({ objectives: done.map((d, i) => ({ id: `o${i}`, title: `O${i}`, done: d })) });
 
 describe("new quests", () => {
-  it("requires objectives for main and side quests, not dailies", () => {
+  it("turns a quest with no objectives into a one-step task; dailies have none", () => {
     const base = { title: "x", domain: "body", xpReward: 100, isBoss: false, objectives: ["", "  "] };
-    expect(() => normalizeNewQuest({ ...base, kind: "main" })).toThrow(/objective/);
+    expect(normalizeNewQuest({ ...base, kind: "main" }).objectives).toEqual(["x"]);
     expect(normalizeNewQuest({ ...base, kind: "daily" }).objectives).toEqual([]);
   });
 
