@@ -92,7 +92,7 @@
 - [x] Health page: tiles with trend lines and change vs the stretch before, 7 / 30 / 90-day charts with hover and low–high band, table view
 - [x] Sleep earns XP (Sleep activity, via the Inbox)
 - [x] Shortcut guide with every metric name, always available in the Inbox
-- [ ] Run `0009_health_metrics.sql` on the live database
+- [x] Run `0009_health_metrics.sql` on the live database
 - [ ] Update the iPhone Shortcut to send the extra metrics
 
 ## Phase 9: Polish
