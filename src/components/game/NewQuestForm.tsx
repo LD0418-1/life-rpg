@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { gameConfig } from "@/lib/game/config";
 import { DEFAULT_QUEST_XP } from "@/lib/game/quests";
+import type { Season } from "@/lib/game/seasons";
 import type { NewQuestInput } from "@/lib/game/types";
 import { Panel } from "@/components/ui/Panel";
 import { SlashButton } from "@/components/ui/SlashButton";
@@ -11,13 +12,14 @@ const fieldClass = "w-full bg-ink-3 px-3 py-2 text-paper outline-none focus:ring
 const labelClass = "mb-1 block font-label text-sm font-extrabold tracking-widest text-muted uppercase";
 
 /** Collapsible form for starting a new quest or daily. */
-export function NewQuestForm({ onCreate }: { onCreate: (input: NewQuestInput) => Promise<boolean> }) {
+export function NewQuestForm({ onCreate, season }: { onCreate: (input: NewQuestInput) => Promise<boolean>; season?: Season | null }) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<NewQuestInput["kind"]>("main");
   const [title, setTitle] = useState("");
   const [domain, setDomain] = useState(gameConfig.domains[0].id);
   const [xp, setXp] = useState(DEFAULT_QUEST_XP.main);
   const [isBoss, setIsBoss] = useState(false);
+  const [forSeason, setForSeason] = useState(false);
   const [objectives, setObjectives] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -32,7 +34,7 @@ export function NewQuestForm({ onCreate }: { onCreate: (input: NewQuestInput) =>
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const ok = await onCreate({ kind, title, domain, xpReward: xp, isBoss, objectives: objectives.split("\n") });
+    const ok = await onCreate({ kind, title, domain, xpReward: xp, isBoss, objectives: objectives.split("\n"), seasonId: forSeason && season && kind !== "daily" ? season.id : null });
     setSaving(false);
     if (ok) {
       setTitle("");
@@ -92,6 +94,12 @@ export function NewQuestForm({ onCreate }: { onCreate: (input: NewQuestInput) =>
               <input type="checkbox" checked={isBoss} onChange={(e) => setIsBoss(e.target.checked)} className="h-4 w-4 accent-[var(--volt)]" />
               <span><span className="font-label font-extrabold tracking-wider text-volt uppercase">Boss fight</span> <span className="text-sm text-muted">· a dreaded task. Objectives become its HP.</span></span>
             </label>
+            {season && (
+              <label className="flex items-center gap-3">
+                <input type="checkbox" checked={forSeason} onChange={(e) => setForSeason(e.target.checked)} className="h-4 w-4 accent-[var(--volt)]" />
+                <span><span className="font-label font-extrabold tracking-wider text-volt uppercase">★ Season goal</span> <span className="text-sm text-muted">· pin it to {season.name}</span></span>
+              </label>
+            )}
           </>
         )}
 

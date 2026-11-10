@@ -4,6 +4,7 @@ import { gameConfig } from "./game/config";
 import { type LogEntry, type Quest, type SheetData, toDay } from "./game/types";
 import { newlyEarned } from "./game/achievements";
 import type { LootItem, Purchase } from "./game/loot";
+import type { Season, SeasonGoal } from "./game/seasons";
 import type { Skill } from "./game/skills";
 import { buildStats } from "./game/stats";
 import { addDays } from "./game/streaks";
@@ -21,7 +22,7 @@ function seeded(seed: number) {
 const SAMPLE_GAPS = new Set([3, 10, 26, 27]);
 const SAMPLE_REST_DAYS_AGO = 3;
 
-export function buildSampleEntries(today: Date, days = 40): LogEntry[] {
+export function buildSampleEntries(today: Date, days = 70): LogEntry[] {
   const rand = seeded(42);
   // How often each activity shows up on a given day.
   const habits: Record<string, number> = {
@@ -132,6 +133,18 @@ export function buildSampleWorld(now: Date): SampleWorld {
     bossesDefeated: 0,
     purchases: purchases.length,
   };
+  const seasons: Season[] = [
+    { id: "season-past", name: "Summer warm-up", startsOn: addDays(today, -75), endsOn: addDays(today, -41), notes: "Get back into running and reading." },
+    { id: "season-now", name: "Autumn arc", startsOn: addDays(today, -40), endsOn: addDays(today, 50), notes: "Half marathon, and finally deal with the taxes." },
+  ];
+  const closedSeasonGoals: SeasonGoal[] = [
+    { id: "past-goal-1", title: "Run a 5k", seasonId: "season-past", status: "completed" },
+    { id: "past-goal-2", title: "Read two books", seasonId: "season-past", status: "abandoned" },
+  ];
+  const completedOn = [addDays(today, -50)];
+  const pinned = new Set(["q1", "q3"]);
+  const quests = sampleQuests.map((q) => (pinned.has(q.id) ? { ...q, seasonId: "season-now" } : q));
+  counts.questsCompleted = completedOn.length;
   const stats = buildStats({ days, restDays, today, totals, skills: sampleSkills, ...counts });
   // Sample achievements already earned, dated a few days back.
   const unlocked = Object.fromEntries(newlyEarned(stats, {}).map((slug, i) => [slug, `${addDays(today, -(i + 2))}T12:00:00Z`]));
@@ -151,12 +164,15 @@ export function buildSampleWorld(now: Date): SampleWorld {
       totals,
       recent: [...entries].reverse().slice(0, 10),
       todayCounts: {},
-      quests: sampleQuests,
+      quests,
       dailies: sampleDailies,
       skills: sampleSkills,
       shop: { items: sampleLoot, purchases },
       goldSpent: purchases.reduce((sum, p) => sum + p.cost, 0),
       achievements: { stats, unlocked },
+      seasons,
+      closedSeasonGoals,
+      completedOn,
     },
   };
 }

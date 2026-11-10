@@ -9,10 +9,12 @@ import { ACHIEVEMENTS } from "@/lib/game/achievements";
 import { type Activity, gameConfig } from "@/lib/game/config";
 import { activityOf, addDayXp, domainLabel } from "@/lib/game/format";
 import type { LootItem, NewLootInput, Purchase } from "@/lib/game/loot";
+import type { NewSeasonInput, Season, SeasonEdit } from "@/lib/game/seasons";
 import type { NewSkillInput, Skill } from "@/lib/game/skills";
 import { type Progress, computeProgress } from "@/lib/game/streaks";
 import { effectiveTheme, themeStyle } from "@/lib/game/themes";
 import type { LogEntry, LogOptions, NewQuestInput, Quest, QuestEdit, SheetBackend, SheetData } from "@/lib/game/types";
+import { regionFor, stageFor } from "@/lib/game/world";
 import { type CharacterSummary, addToTotals, detectLevelUp, summarizeTotals } from "@/lib/game/xp";
 import { LevelUpOverlay, type LevelUpEvent } from "./LevelUpOverlay";
 import { LogDialog } from "./LogDialog";
@@ -67,6 +69,9 @@ export interface Game {
   archiveLoot: (item: LootItem) => void;
   buyLoot: (item: LootItem) => void;
   redeemPurchase: (p: Purchase) => void;
+  createSeason: (input: NewSeasonInput) => Promise<boolean>;
+  updateSeason: (season: Season, edit: SeasonEdit) => Promise<boolean>;
+  setQuestSeason: (q: Quest, seasonId: string | null) => void;
 }
 
 const GameContext = createContext<Game | null>(null);
@@ -166,6 +171,13 @@ export function GameProvider({
   /** Adds a saved ledger entry to the screen, with the +XP pop, streak banners and level-up check. */
   function applyEntry(entry: LogEntry, target: string, bossDefeated?: Quest) {
     const up = detectLevelUp(data.totals, entry);
+    const region = regionFor(entry.domain);
+    if (region) {
+      const after = summarizeTotals(addToTotals(data.totals, [entry]));
+      const was = stageFor(summary.domains[entry.domain]?.level ?? 1);
+      const now = stageFor(after.domains[entry.domain]?.level ?? 1);
+      if (now > was) pushBanner({ kicker: "World upgraded", title: region.stages[now], sub: `${region.name} grew · see the World map` });
+    }
     if (data.streaksReady) {
       const after = computeProgress(addDayXp(data.days, entry.occurredOn, entry.xp), data.restDays, data.today);
       if (after.shields > progress.shields) pushBanner({ title: "Shield earned!", sub: `${after.streak}-day streak · a missed day won't break it` });
@@ -279,7 +291,10 @@ export function GameProvider({
               : x,
           ),
         }));
-        if (reward) applyEntry(reward, q.id, q.isBoss ? q : undefined);
+        if (reward) {
+          setData((d) => ({ ...d, completedOn: [...d.completedOn, d.today] }));
+          applyEntry(reward, q.id, q.isBoss ? q : undefined);
+        }
       }),
     abandonQuest: (q) => {
       if (!window.confirm(`Abandon "${q.title}"? It disappears from your quest log.`)) return;
@@ -359,6 +374,29 @@ export function GameProvider({
       void act(`purchase:${p.id}`, async () => {
         const updated = await backend.redeemPurchase(p.id);
         setData((d) => (d.shop ? { ...d, shop: { ...d.shop, purchases: d.shop.purchases.map((x) => (x.id === p.id ? updated : x)) } } : d));
+      }),
+    createSeason: async (input) =>
+      (await act("new-season", async () => {
+        const season = await backend.createSeason(input);
+        const pinned = new Set(input.questIds);
+        setData((d) => ({
+          ...d,
+          seasons: [...d.seasons, season].sort((a, b) => a.startsOn.localeCompare(b.startsOn)),
+          quests: d.quests.map((q) => (pinned.has(q.id) && !q.completed ? { ...q, seasonId: season.id } : q)),
+        }));
+        pushBanner({ kicker: "New season", title: season.name, sub: `${season.startsOn} → ${season.endsOn}` });
+        return true as const;
+      })) === true,
+    updateSeason: async (season, edit) =>
+      (await act(`season:${season.id}`, async () => {
+        const updated = await backend.updateSeason(season.id, edit);
+        setData((d) => ({ ...d, seasons: d.seasons.map((x) => (x.id === season.id ? updated : x)) }));
+        return true as const;
+      })) === true,
+    setQuestSeason: (q, seasonId) =>
+      void act(`pin:${q.id}`, async () => {
+        await backend.setQuestSeason(q.id, seasonId);
+        setData((d) => ({ ...d, quests: d.quests.map((x) => (x.id === q.id ? { ...x, seasonId } : x)) }));
       }),
   };
 

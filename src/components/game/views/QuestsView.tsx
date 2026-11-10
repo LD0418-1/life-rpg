@@ -2,14 +2,18 @@
 
 import { Panel } from "@/components/ui/Panel";
 import { XpBar } from "@/components/ui/XpBar";
+import { currentSeason } from "@/lib/game/seasons";
 import type { Quest } from "@/lib/game/types";
 import { useGame } from "../GameProvider";
 import { NewQuestForm } from "../NewQuestForm";
 import { QuestEditor } from "../QuestEditor";
+import { SeasonPanel } from "../SeasonPanel";
 import { PageHeader } from "./PageHeader";
 
 function QuestCard({ q }: { q: Quest }) {
-  const { canEdit, editing, setEditing, toggleObjective, abandonQuest, saveQuest, addObjective, removeObjective, isBusy, floatersFor } = useGame();
+  const { data, canEdit, editing, setEditing, toggleObjective, abandonQuest, saveQuest, addObjective, removeObjective, setQuestSeason, isBusy, floatersFor } = useGame();
+  const season = currentSeason(data.seasons, data.today);
+  const pinnedSeason = q.seasonId ? data.seasons.find((s) => s.id === q.seasonId) : null;
   const done = q.objectives.filter((o) => o.done).length;
   const total = Math.max(1, q.objectives.length);
   return (
@@ -23,30 +27,49 @@ function QuestCard({ q }: { q: Quest }) {
           {q.completed ? (q.isBoss ? "Defeated!" : "Cleared!") : q.isBoss ? "Boss" : q.kind === "main" ? "Main quest" : "Side quest"}
         </span>
         <h3 className={`font-display text-2xl uppercase ${q.completed ? "text-muted line-through" : ""}`}>{q.title}</h3>
-        <span className="ml-auto font-label text-sm font-extrabold text-muted">
-          +{q.xpReward} XP
-          {canEdit && (
+        {pinnedSeason && (
+          <span className="font-label text-xs font-extrabold tracking-widest text-volt uppercase" title={`Goal for ${pinnedSeason.name}`}>
+            ★ {pinnedSeason.name}
+          </span>
+        )}
+        <span className="ml-auto flex shrink-0 items-center gap-1">
+          <span className="mr-1 font-label text-sm font-extrabold whitespace-nowrap text-muted">
+            +{q.xpReward} XP
+            {canEdit && (
+              <>
+                {" "}
+                · <span className="text-volt">◆{q.goldReward}</span>
+              </>
+            )}
+          </span>
+          {canEdit && !q.completed && (
             <>
-              {" "}
-              · <span className="text-volt">◆{q.goldReward}</span>
+              {season && (
+                <button
+                  onClick={() => setQuestSeason(q, q.seasonId === season.id ? null : season.id)}
+                  disabled={isBusy(`pin:${q.id}`)}
+                  aria-pressed={q.seasonId === season.id}
+                  aria-label={q.seasonId === season.id ? `Unpin ${q.title} from ${season.name}` : `Pin ${q.title} as a goal for ${season.name}`}
+                  title={q.seasonId === season.id ? "Unpin from this season" : "Pin as a season goal"}
+                  className={`px-1 ${q.seasonId === season.id ? "text-volt" : "text-muted opacity-60 hover:text-volt hover:opacity-100"}`}
+                >
+                  {q.seasonId === season.id ? "★" : "☆"}
+                </button>
+              )}
+              <button
+                onClick={() => setEditing(editing === q.id ? null : q.id)}
+                aria-label={`Edit ${q.title}`}
+                aria-expanded={editing === q.id}
+                className="px-1 text-muted opacity-60 hover:text-paper hover:opacity-100"
+              >
+                ✎
+              </button>
+              <button onClick={() => abandonQuest(q)} aria-label={`Abandon ${q.title}`} className="px-1 text-muted opacity-60 hover:text-crimson hover:opacity-100">
+                ×
+              </button>
             </>
           )}
         </span>
-        {canEdit && !q.completed && (
-          <>
-            <button
-              onClick={() => setEditing(editing === q.id ? null : q.id)}
-              aria-label={`Edit ${q.title}`}
-              aria-expanded={editing === q.id}
-              className="px-1 text-muted opacity-60 hover:text-paper hover:opacity-100"
-            >
-              ✎
-            </button>
-            <button onClick={() => abandonQuest(q)} aria-label={`Abandon ${q.title}`} className="px-1 text-muted opacity-60 hover:text-crimson hover:opacity-100">
-              ×
-            </button>
-          </>
-        )}
       </div>
       {editing === q.id ? (
         <QuestEditor
@@ -108,6 +131,9 @@ export function QuestsView() {
   return (
     <main className="mx-auto max-w-6xl px-4 pt-8">
       <PageHeader kicker="Quest log" title="Quests" />
+      <div className="mb-10">
+        <SeasonPanel />
+      </div>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-10 xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div className="space-y-10">
           {bosses.length > 0 && <QuestGroup title="Bosses" kicker="Dreaded tasks" quests={bosses} empty="" />}
@@ -116,7 +142,7 @@ export function QuestsView() {
         </div>
         {canEdit && (
           <div className="space-y-6">
-            <NewQuestForm onCreate={createQuest} />
+            <NewQuestForm onCreate={createQuest} season={currentSeason(data.seasons, data.today)} />
             <p className="text-sm text-muted">
               Dailies you create here show up on the <strong>Today</strong> page. Mark a dreaded task as a <strong>boss</strong>: its objectives
               become HP, and you get a victory screen when it falls.

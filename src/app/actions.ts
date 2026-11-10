@@ -19,7 +19,18 @@ import type { LogEntry, LogOptions, NewQuestInput, Quest, QuestEdit } from "@/li
 import { checkPlanRest, checkUnplanRest, computeProgress } from "@/lib/game/streaks";
 import { dayInTimeZone, scoreEntry } from "@/lib/game/xp";
 import { createClient } from "@/lib/supabase/server";
-import { ENTRY_COLUMNS, type LogEntryRow, QUEST_COLUMNS, type QuestRow, toLogEntry, toQuest } from "@/lib/supabase/rows";
+import {
+  ENTRY_COLUMNS,
+  type LogEntryRow,
+  QUEST_COLUMNS,
+  type QuestRow,
+  SEASON_COLUMNS,
+  type SeasonRow,
+  toLogEntry,
+  toQuest,
+  toSeason,
+} from "@/lib/supabase/rows";
+import { type NewSeasonInput, type Season, type SeasonEdit, normalizeNewSeason, normalizeSeasonEdit, seasonState } from "@/lib/game/seasons";
 import { loadTotals } from "@/lib/data";
 import { gameConfig } from "@/lib/game/config";
 import { type LootItem, type NewLootInput, type Purchase, normalizeNewLoot } from "@/lib/game/loot";
@@ -161,6 +172,7 @@ export async function createQuestAction(input: NewQuestInput): Promise<ActionRes
         xp_reward: quest.xpReward,
         gold_reward: quest.goldReward,
         is_boss: quest.isBoss,
+        season_id: input.seasonId ?? null,
       })
       .select("id")
       .single<{ id: string }>();
@@ -353,6 +365,65 @@ export async function redeemPurchaseAction(purchaseId: string): Promise<ActionRe
     if (error) throw new Error(error.message);
     if (!data) throw new Error("That reward was already used.");
     return toPurchase(data);
+  });
+}
+
+// ---------- Seasons ----------
+
+async function loadSeasons(supabase: Supabase): Promise<Season[]> {
+  const { data, error } = await supabase.from("seasons").select(SEASON_COLUMNS).order("starts_on");
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as SeasonRow[]).map(toSeason);
+}
+
+export async function createSeasonAction(input: NewSeasonInput): Promise<ActionResult<Season>> {
+  return run(async () => {
+    const { supabase, today } = await ownerContext();
+    const season = normalizeNewSeason(input, await loadSeasons(supabase), today);
+    const { data, error } = await supabase
+      .from("seasons")
+      .insert({ name: season.name, starts_on: season.startsOn, ends_on: season.endsOn, notes: season.notes })
+      .select(SEASON_COLUMNS)
+      .single<SeasonRow>();
+    if (error) throw new Error(error.message);
+    if (season.questIds.length) {
+      const { error: pinError } = await supabase.from("quests").update({ season_id: data.id }).in("id", season.questIds).eq("status", "active");
+      if (pinError) throw new Error(`The season was created, but its goals couldn't be pinned: ${pinError.message}`);
+    }
+    return toSeason(data);
+  });
+}
+
+export async function updateSeasonAction(seasonId: string, edit: SeasonEdit): Promise<ActionResult<Season>> {
+  return run(async () => {
+    const { supabase, today } = await ownerContext();
+    const seasons = await loadSeasons(supabase);
+    const season = seasons.find((x) => x.id === seasonId);
+    if (!season) throw new Error("That season no longer exists.");
+    const clean = normalizeSeasonEdit(season, edit, seasons, today);
+    const { data, error } = await supabase
+      .from("seasons")
+      .update({ name: clean.name, notes: clean.notes, ends_on: clean.endsOn })
+      .eq("id", seasonId)
+      .select(SEASON_COLUMNS)
+      .single<SeasonRow>();
+    if (error) throw new Error(error.message);
+    return toSeason(data);
+  });
+}
+
+/** Pins an active quest to a season as a goal (or unpins it with null). */
+export async function setQuestSeasonAction(questId: string, seasonId: string | null): Promise<ActionResult<void>> {
+  return run(async () => {
+    const { supabase, today } = await ownerContext();
+    if (seasonId) {
+      const season = (await loadSeasons(supabase)).find((x) => x.id === seasonId);
+      if (!season) throw new Error("That season no longer exists.");
+      if (seasonState(season, today) === "past") throw new Error("That season is over. Goals can only be added to current or upcoming seasons.");
+    }
+    const { data, error } = await supabase.from("quests").update({ season_id: seasonId }).eq("id", questId).eq("status", "active").select("id");
+    if (error) throw new Error(error.message);
+    if (!data?.length) throw new Error("Only active quests can be pinned to a season.");
   });
 }
 

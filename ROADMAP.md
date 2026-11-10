@@ -44,9 +44,12 @@
 - [x] Unlocks by level: color themes at levels 5, 10, 15, 20
 - [x] Run `0004_depth.sql` on the live database
 
-## Phase 5: World map
-- [ ] Map with one region per domain that grows as it levels
-- [ ] Seasons / chapters
+## Phase 5: World map ✅
+- [x] World map: an original illustrated island with one region per domain, 6 building stages each, drawn in SVG
+- [x] "World upgraded" banner when a region reaches a new stage
+- [x] Seasons: name, dates, notes, pinned quests as goals, day X of Y, live stats and rank
+- [x] Past season recaps (XP, active days, best streak, goals, levels gained, rank S–D)
+- [x] No database changes needed (seasons and quest links were already in 0001)
 
 ## Phase 6: Automatic imports
 - [ ] GitHub commits → Craft

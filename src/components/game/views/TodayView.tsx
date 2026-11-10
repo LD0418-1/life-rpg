@@ -5,13 +5,16 @@ import { Panel } from "@/components/ui/Panel";
 import { XpBar } from "@/components/ui/XpBar";
 import { gameConfig } from "@/lib/game/config";
 import { activityOf, domainGlyph, unitLabel } from "@/lib/game/format";
+import { currentSeason, seasonStats } from "@/lib/game/seasons";
 import { scoreEntry } from "@/lib/game/xp";
 import { useGame } from "../GameProvider";
 import { QuestEditor } from "../QuestEditor";
 import { StreakPanel } from "../StreakPanel";
 
 function Hero() {
-  const { data, summary, canEdit, goldBalance, progress } = useGame();
+  const { data, summary, canEdit, goldBalance, progress, basePath } = useGame();
+  const season = currentSeason(data.seasons, data.today);
+  const seasonDay = season ? seasonStats(season, [], data.today, [], []) : null;
   return (
     <header className="mb-10 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-4 md:items-end md:gap-x-6">
       <div className="halftone-red skew-box w-fit -rotate-3 px-4 pt-1.5 pb-1 shadow-[5px_5px_0_var(--paper)] md:row-span-2 md:px-7 md:pt-3 md:pb-2 md:shadow-[8px_8px_0_var(--paper)]">
@@ -43,6 +46,11 @@ function Hero() {
           )}
           <span className="skew-box bg-ink-3 px-4 py-0.5">{summary.overall.totalXp.toLocaleString()} total XP</span>
           {data.streaksReady && progress.streak > 0 && <span className="skew-box bg-crimson px-4 py-0.5">{progress.streak}-day streak</span>}
+          {season && seasonDay && (
+            <Link href={`${basePath}/quests`} className="skew-box bg-paper px-4 py-0.5 text-ink hover:bg-volt">
+              ★ {season.name} · day {seasonDay.dayNumber}/{seasonDay.totalDays}
+            </Link>
+          )}
         </div>
       </div>
     </header>

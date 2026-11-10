@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { XpBar } from "@/components/ui/XpBar";
 import { useGame } from "./GameProvider";
 
-type IconName = "today" | "quests" | "skills" | "trophies" | "shop" | "settings";
+type IconName = "today" | "quests" | "world" | "skills" | "trophies" | "shop" | "settings";
 
 function Icon({ name }: { name: IconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "square" as const, strokeLinejoin: "miter" as const };
@@ -14,6 +14,13 @@ function Icon({ name }: { name: IconName }) {
     <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" aria-hidden>
       {name === "today" && <path {...common} d="M13 2 4 14h7l-1 8 9-12h-7z" />}
       {name === "quests" && <path {...common} d="M5 22V3h12l-2.5 4.5L17 12H5" />}
+      {name === "world" && (
+        <g {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <ellipse cx="12" cy="12" rx="4" ry="9" />
+          <path d="M3 12h18" />
+        </g>
+      )}
       {name === "skills" && (
         <g {...common}>
           <rect x="9" y="2" width="6" height="6" />
@@ -43,6 +50,7 @@ export function AppShell({ children, accountActions }: { children: ReactNode; ac
   const items: NavItem[] = [
     { href: root, label: "Today", icon: "today" },
     { href: `${basePath}/quests`, label: "Quests", icon: "quests" },
+    { href: `${basePath}/world`, label: "World", icon: "world" },
     { href: `${basePath}/skills`, label: "Skills", icon: "skills" },
     { href: `${basePath}/trophies`, label: "Trophies", icon: "trophies" },
     ...(canEdit ? [{ href: `${basePath}/shop`, label: "Shop", icon: "shop" as const }] : []),
@@ -142,11 +150,11 @@ export function AppShell({ children, accountActions }: { children: ReactNode; ac
             key={item.href}
             href={item.href}
             aria-current={isActive(item.href) ? "page" : undefined}
-            className={`flex flex-1 flex-col items-center gap-0.5 pt-2 pb-2 font-label text-[11px] font-extrabold tracking-wider uppercase ${
+            className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 pt-2 pb-2 font-label text-[10px] font-extrabold tracking-wide uppercase sm:text-[11px] sm:tracking-wider ${
               isActive(item.href) ? "text-paper" : "text-muted"
             }`}
           >
-            <span className={`skew-box px-3 py-1 ${isActive(item.href) ? "bg-crimson" : ""}`}>
+            <span className={`skew-box px-2.5 py-1 ${isActive(item.href) ? "bg-crimson" : ""}`}>
               <Icon name={item.icon} />
             </span>
             {item.label}

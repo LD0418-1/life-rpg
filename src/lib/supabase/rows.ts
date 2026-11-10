@@ -1,4 +1,5 @@
 // Database rows (snake_case) and how they turn into app objects (camelCase).
+import type { Season } from "@/lib/game/seasons";
 import type { LogEntry, Quest } from "@/lib/game/types";
 
 export interface LogEntryRow {
@@ -30,6 +31,7 @@ export interface QuestRow {
   xp_reward: number;
   gold_reward: number;
   is_boss: boolean;
+  season_id?: string | null;
   quest_objectives?: ObjectiveRow[];
 }
 
@@ -46,7 +48,7 @@ export interface ProfileRow {
 export const ENTRY_COLUMNS = "id, source, activity_slug, quest_id, domain, units, difficulty, note, xp, gold, occurred_on";
 
 export const QUEST_COLUMNS =
-  "id, kind, title, domain, xp_reward, gold_reward, is_boss, quest_objectives(id, title, done_at, position)";
+  "id, kind, title, domain, xp_reward, gold_reward, is_boss, season_id, quest_objectives(id, title, done_at, position)";
 
 export function toLogEntry(r: LogEntryRow): LogEntry {
   return {
@@ -76,7 +78,22 @@ export function toQuest(r: QuestRow, doneToday = false): Quest {
     xpReward: r.xp_reward,
     goldReward: r.gold_reward,
     isBoss: r.is_boss,
+    seasonId: r.season_id ?? null,
     objectives,
     doneToday,
   };
+}
+
+export const SEASON_COLUMNS = "id, name, starts_on, ends_on, notes";
+
+export interface SeasonRow {
+  id: string;
+  name: string;
+  starts_on: string;
+  ends_on: string;
+  notes: string | null;
+}
+
+export function toSeason(r: SeasonRow): Season {
+  return { id: r.id, name: r.name, startsOn: r.starts_on, endsOn: r.ends_on, notes: r.notes };
 }

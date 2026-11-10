@@ -9,7 +9,19 @@ import {
   loadUnlockedAchievements,
   recordAchievements,
 } from "@/lib/supabase/depth-data";
-import { ENTRY_COLUMNS, type LogEntryRow, type ProfileRow, QUEST_COLUMNS, type QuestRow, toLogEntry, toQuest } from "@/lib/supabase/rows";
+import {
+  ENTRY_COLUMNS,
+  type LogEntryRow,
+  type ProfileRow,
+  QUEST_COLUMNS,
+  type QuestRow,
+  SEASON_COLUMNS,
+  type SeasonRow,
+  toLogEntry,
+  toQuest,
+  toSeason,
+} from "@/lib/supabase/rows";
+import type { SeasonGoal } from "@/lib/game/seasons";
 import { createClient } from "@/lib/supabase/server";
 import { loadStreakData } from "@/lib/supabase/streak-data";
 
@@ -47,7 +59,8 @@ export async function loadSheet(): Promise<SheetResult> {
   if (!profile || (!isOwner && !profile.is_public)) return { kind: "private", signedIn: Boolean(user) };
 
   const today = dayInTimeZone(new Date(), profile.timezone);
-  const [streakData, totals, recentRes, todayRes, questsRes, doneRes, skills, unlocked, shop, goldSpent] = await Promise.all([
+  const [streakData, totals, recentRes, todayRes, questsRes, doneRes, skills, unlocked, shop, goldSpent, seasonsRes, closedGoalsRes, completedRes] =
+    await Promise.all([
     loadStreakData(supabase),
     loadTotals(supabase),
     supabase.from("log_entries").select(ENTRY_COLUMNS).order("occurred_at", { ascending: false }).limit(10),
@@ -58,8 +71,11 @@ export async function loadSheet(): Promise<SheetResult> {
     loadUnlockedAchievements(supabase),
     isOwner ? loadShop(supabase) : Promise.resolve(null),
     isOwner ? loadGoldSpent(supabase) : Promise.resolve(0),
+    supabase.from("seasons").select(SEASON_COLUMNS).order("starts_on"),
+    supabase.from("quests").select("id, title, season_id, status").not("season_id", "is", null).neq("status", "active"),
+    supabase.from("quests").select("completed_at").eq("status", "completed").neq("kind", "daily"),
   ]);
-  for (const res of [recentRes, todayRes, questsRes, doneRes]) {
+  for (const res of [recentRes, todayRes, questsRes, doneRes, seasonsRes, closedGoalsRes, completedRes]) {
     if (res.error) throw new Error(`Could not load your data: ${res.error.message}`);
   }
 
@@ -97,6 +113,13 @@ export async function loadSheet(): Promise<SheetResult> {
       shop,
       goldSpent,
       achievements: { stats, unlocked: achievements.unlocked },
+      seasons: ((seasonsRes.data ?? []) as SeasonRow[]).map(toSeason),
+      closedSeasonGoals: (closedGoalsRes.data ?? []).map(
+        (q): SeasonGoal => ({ id: q.id as string, title: q.title as string, seasonId: q.season_id as string, status: q.status as SeasonGoal["status"] }),
+      ),
+      completedOn: (completedRes.data ?? [])
+        .filter((q) => q.completed_at)
+        .map((q) => dayInTimeZone(new Date(q.completed_at as string), profile.timezone)),
     },
   };
 }

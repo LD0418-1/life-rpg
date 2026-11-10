@@ -3,6 +3,7 @@
 
 import type { AchievementStats } from "./achievements";
 import type { LootItem, NewLootInput, Purchase } from "./loot";
+import type { NewSeasonInput, Season, SeasonEdit, SeasonGoal } from "./seasons";
 import type { NewSkillInput, Skill } from "./skills";
 
 export interface LogEntry {
@@ -38,6 +39,8 @@ export interface Quest {
   bossHp?: number;
   objectives: QuestObjective[];
   completed?: boolean;
+  /** The season this quest is a goal of, if any. */
+  seasonId?: string | null;
   /** For dailies: done today? */
   doneToday?: boolean;
 }
@@ -57,6 +60,8 @@ export interface NewQuestInput {
   xpReward: number;
   isBoss: boolean;
   objectives: string[];
+  /** Pin it as a goal of this season. */
+  seasonId?: string | null;
 }
 
 /** Everything the character sheet shows. Loaded from Supabase, or built from sample data. */
@@ -89,6 +94,11 @@ export interface SheetData {
   shop: { items: LootItem[]; purchases: Purchase[] } | null;
   goldSpent: number;
   achievements: { stats: AchievementStats; unlocked: Record<string, string> };
+  seasons: Season[];
+  /** Season goals that are no longer active (completed or abandoned). Active ones are in `quests`. */
+  closedSeasonGoals: SeasonGoal[];
+  /** Days (YYYY-MM-DD) on which a main or side quest was completed. */
+  completedOn: string[];
 }
 
 export interface AchievementSync {
@@ -131,6 +141,9 @@ export interface SheetBackend {
   archiveLoot(itemId: string): Promise<void>;
   buyLoot(itemId: string): Promise<Purchase>;
   redeemPurchase(purchaseId: string): Promise<Purchase>;
+  createSeason(input: NewSeasonInput): Promise<Season>;
+  updateSeason(seasonId: string, edit: SeasonEdit): Promise<Season>;
+  setQuestSeason(questId: string, seasonId: string | null): Promise<void>;
   /** Re-checks achievements after something happened. */
   syncAchievements(): Promise<AchievementSync>;
 }

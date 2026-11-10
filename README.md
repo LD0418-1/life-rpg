@@ -7,7 +7,8 @@ My life, played as a game. It's a motivation engine that keeps me on track, and 
 ### Pages
 A sidebar on big screens and a tab bar on phones link these sections:
 - `/` **Today**: your character, quick log, streak, dailies, recent log.
-- `/quests`: bosses, main and side quests, plus the new-quest form.
+- `/quests`: the current season (goals, day count, rank so far), past season recaps, then bosses, main and side quests.
+- `/world`: the world map. One region per domain, with buildings that grow in 6 stages as the domain levels up.
 - `/skills`: stats radar, level unlocks (color themes) and skill trees.
 - `/trophies`: achievements. Hidden ones show as "???" until earned.
 - `/shop` (owner only): the loot shop and your inventory.
@@ -78,6 +79,8 @@ supabase/migrations/
 - **loot shop**: your gold balance = gold earned − gold spent. Rewards can be repeatable or one-time.
 - **achievements** (`src/lib/game/achievements.ts`) are judged on the server from your database and recorded once earned.
 - **themes** (`src/lib/game/themes.ts`) unlock at levels 5, 10, 15 and 20.
+- **world map** (`src/lib/game/world.ts`, drawn in `src/components/game/WorldMap.tsx`): each region's stage follows its domain level (1, 3, 5, 10, 15, 25).
+- **seasons** (`src/lib/game/seasons.ts`): named chapters with dates and pinned quests as goals. The rank is based on the share of active days: S ≥ 90%, A ≥ 75%, B ≥ 50%, C ≥ 25%, otherwise D.
 - Streaks are *replayed* from your log every time (`src/lib/game/streaks.ts`), so nothing can drift out of sync, and changing these numbers re-tells your history with the new rules.
 
 ### The database (`supabase/migrations/0001_init.sql`)

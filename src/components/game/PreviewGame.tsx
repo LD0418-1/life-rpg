@@ -14,12 +14,13 @@ import {
   goldForQuestXp,
   normalizeNewQuest,
 } from "@/lib/game/quests";
+import { type Season, normalizeNewSeason, normalizeSeasonEdit, seasonState } from "@/lib/game/seasons";
 import { type Skill, deleteBlocker, normalizeNewSkill, unlockBlocker } from "@/lib/game/skills";
 import { buildStats } from "@/lib/game/stats";
 import { checkPlanRest, checkUnplanRest, computeProgress } from "@/lib/game/streaks";
 import type { LogEntry, Quest, SheetBackend } from "@/lib/game/types";
 import { addToTotals, scoreEntry } from "@/lib/game/xp";
-import { type SampleWorld, buildSampleWorld, sampleDailies, sampleQuests } from "@/lib/sample-data";
+import { type SampleWorld, buildSampleWorld, sampleDailies } from "@/lib/sample-data";
 import { AppShell } from "./AppShell";
 import { GameProvider } from "./GameProvider";
 
@@ -35,7 +36,8 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
   const items = new Map<string, LootItem>((sheet.shop?.items ?? []).map((i) => [i.id, i]));
   let purchases: Purchase[] = structuredClone(sheet.shop?.purchases ?? []);
   let unlocked = { ...sheet.achievements.unlocked };
-  const quests = new Map<string, Quest>([...sampleQuests, ...sampleDailies].map((q) => [q.id, structuredClone(q)]));
+  let seasons: Season[] = structuredClone(sheet.seasons);
+  const quests = new Map<string, Quest>([...sheet.quests, ...sampleDailies].map((q) => [q.id, structuredClone(q)]));
   let n = 0;
   const id = () => `preview-${++n}`;
 
@@ -92,7 +94,7 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
     },
     async createQuest(input) {
       const clean = normalizeNewQuest(input);
-      const q: Quest = { ...clean, id: id(), objectives: clean.objectives.map((title) => ({ id: id(), title, done: false })) };
+      const q: Quest = { ...clean, id: id(), seasonId: input.seasonId ?? null, objectives: clean.objectives.map((title) => ({ id: id(), title, done: false })) };
       quests.set(q.id, q);
       return structuredClone(q);
     },
@@ -170,6 +172,34 @@ function createPreviewBackend({ sheet, counts: initialCounts }: SampleWorld): Sh
       if (!p || p.redeemedAt) throw new Error("That reward was already used.");
       p.redeemedAt = new Date().toISOString();
       return { ...p };
+    },
+    async createSeason(input) {
+      const clean = normalizeNewSeason(input, seasons, today);
+      const season: Season = { id: id(), name: clean.name, startsOn: clean.startsOn, endsOn: clean.endsOn, notes: clean.notes };
+      seasons = [...seasons, season].sort((a, b) => a.startsOn.localeCompare(b.startsOn));
+      for (const qid of clean.questIds) {
+        const q = quests.get(qid);
+        if (q && !q.completed) q.seasonId = season.id;
+      }
+      return season;
+    },
+    async updateSeason(seasonId, edit) {
+      const season = seasons.find((x) => x.id === seasonId);
+      if (!season) throw new Error("That season no longer exists.");
+      const clean = normalizeSeasonEdit(season, edit, seasons, today);
+      const updated = { ...season, ...clean };
+      seasons = seasons.map((x) => (x.id === seasonId ? updated : x));
+      return updated;
+    },
+    async setQuestSeason(questId, seasonId) {
+      if (seasonId) {
+        const season = seasons.find((x) => x.id === seasonId);
+        if (!season) throw new Error("That season no longer exists.");
+        if (seasonState(season, today) === "past") throw new Error("That season is over. Goals can only be added to current or upcoming seasons.");
+      }
+      const q = quests.get(questId);
+      if (!q || q.completed) throw new Error("Only active quests can be pinned to a season.");
+      q.seasonId = seasonId;
     },
     async syncAchievements() {
       const stats = buildStats({ days: days(), restDays, today, totals, skills, ...counts });

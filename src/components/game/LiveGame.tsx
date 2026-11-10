@@ -41,6 +41,9 @@ export function LiveGame({ initial, isOwner, children }: { initial: SheetData; i
       buyLoot: (itemId) => unwrap(actions.buyLootAction(itemId)),
       redeemPurchase: (purchaseId) => unwrap(actions.redeemPurchaseAction(purchaseId)),
       syncAchievements: () => unwrap(actions.syncAchievementsAction()),
+      createSeason: (input) => unwrap(actions.createSeasonAction(input)),
+      updateSeason: (seasonId, edit) => unwrap(actions.updateSeasonAction(seasonId, edit)),
+      setQuestSeason: (questId, seasonId) => unwrap(actions.setQuestSeasonAction(questId, seasonId)),
     }),
     [],
   );
