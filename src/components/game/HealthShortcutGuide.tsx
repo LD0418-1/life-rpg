@@ -23,38 +23,38 @@ export function HealthShortcutGuide({ endpoint }: { endpoint: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="space-y-4 text-sm">
+      <p className="text-muted">
+        Build it one metric at a time. Start with steps, get it working end to end, then add more with the same pattern. (Search box = the bar at the
+        bottom of the Shortcut editor.)
+      </p>
       <ol className="ml-5 list-decimal space-y-2 text-muted">
         <li>
-          Open <strong className="text-paper">Shortcuts</strong> → <strong className="text-paper">+</strong> → name it &ldquo;Life RPG&rdquo;.
+          <strong className="text-paper">Find Health Samples</strong>: Type <em>Steps</em>, Start Date <em>is today</em>, and set <em>Group by</em> to <em>Day</em> (so your
+          iPhone and Watch aren&apos;t counted twice).
         </li>
         <li>
-          <strong className="text-paper">Totals</strong> (steps, distance, energy, flights, exercise, mindful minutes): add <strong className="text-paper">Find Health Samples</strong>,
-          Type <em>Steps</em> (etc.), Start Date <em>is today</em>, <em>Group By Day</em>. Then <strong className="text-paper">Calculate Statistics</strong> → <em>Sum</em>.
+          Search <strong className="text-paper">Calculate Statistics</strong> and add it. Tap <em>Average</em> and change it to <em>Sum</em>.
         </li>
         <li>
-          <strong className="text-paper">Readings</strong> (heart rate, resting heart rate, HRV, blood oxygen, weight…): <strong className="text-paper">Find Health Samples</strong>, Type,
-          Start Date <em>is today</em>. Send the whole list as it is: Life RPG averages it and keeps the day&apos;s low and high.
+          Search <strong className="text-paper">Set Variable</strong> and add it. Name the variable <code>steps</code>.
         </li>
         <li>
-          <strong className="text-paper">Sleep</strong>: Find Health Samples, Type <em>Sleep Analysis</em>, End Date <em>is today</em>, Value <em>is Asleep</em> (or Core / Deep /
-          REM for the stages). <strong className="text-paper">Get Details of Health Samples</strong> → <em>Duration</em>, then Calculate Statistics → <em>Sum</em>. Send it as{" "}
-          <code>sleep_minutes</code> or <code>sleep_hours</code>, whichever unit Shortcuts shows.
+          Readings (resting heart rate, HRV, weight…): the same three actions, but with <em>Average</em> instead of Sum, no grouping, and the variable named after
+          the metric (e.g. <code>resting_heart_rate</code>).
         </li>
         <li>
-          <strong className="text-paper">Workouts</strong>: Find Workouts (today) → total duration → <code>workout_minutes</code>; running workouts only → <code>run_minutes</code>.
+          At the end, search <strong className="text-paper">Get Contents of URL</strong>. Paste the URL below. Tap the arrow to show more: Method <em>POST</em>; Headers →
+          Add → key <code>Authorization</code>, value <code>Bearer </code> followed by your token; Request Body <em>JSON</em> → Add new field → <em>Text</em>, key{" "}
+          <code>date</code>, value: the <em>Current Date</em> variable (no formatting needed). Then one <em>Number</em> field per variable, key = its name.
         </li>
-        <li>
-          Add <strong className="text-paper">Get Contents of URL</strong>: the URL below, Method <em>POST</em>, header <code>Authorization</code> = <code>Bearer </code>+ your token.
-          Request Body <em>JSON</em>: <code>date</code> = Current Date formatted <code>yyyy-MM-dd</code>, then one field per metric, using the names in the table below.
-        </li>
-        <li>Run it once. It should answer &ldquo;Saved … health metric(s)&rdquo;. Compare one or two numbers with the Health app the first time.</li>
+        <li>Tap ▶. It should answer &ldquo;Saved … health metric(s)&rdquo;. Compare the steps with the Health app the first time.</li>
         <li>
           <strong className="text-paper">Automation</strong> tab → <strong className="text-paper">+</strong> → <em>Time of Day</em>, daily, late evening (e.g. 23:30) →{" "}
           <em>Run Immediately</em> → run &ldquo;Life RPG&rdquo;.
         </li>
       </ol>
       <p className="text-xs text-muted">
-        URL: <code className="break-all">{endpoint}</code>. Running it again the same day just updates that day. Values can be numbers or lists of numbers. Any other
+        URL: <code className="break-all">{endpoint}</code>. Running it again the same day just updates that day. Values can be numbers or lists of numbers. Sleep and workouts need different actions: ask for help with those. Any other
         Apple Health type works too: give it a name with letters and _ (like <code>vitamin_c</code>) and it shows up under &ldquo;Other&rdquo;.
       </p>
 

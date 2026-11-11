@@ -89,6 +89,14 @@ describe("Apple Health payload", () => {
     expect(parseHealthPayload({ steps: 100 }, "2026-11-11").metrics[0].day).toBe("2026-11-11");
     expect(parseHealthPayload({ date: "2026-11-10T21:30:00+08:00", steps: 100 }, "x").metrics[0].day).toBe("2026-11-10");
   });
+  it("reads Shortcuts' own date text and lists sent as text", () => {
+    expect(parseHealthPayload({ date: "Nov 9, 2026 at 11:30 PM", steps: 1 }, null).metrics[0].day).toBe("2026-11-09");
+    expect(parseHealthPayload({ date: "9 November 2026 at 23:30", steps: 1 }, null).metrics[0].day).toBe("2026-11-09");
+    expect(() => parseHealthPayload({ date: "11/09/2026", steps: 1 }, null)).toThrow(/yyyy-MM-dd/);
+    expect(() => parseHealthPayload({ steps: 1 }, null)).toThrow(/Add a "date"/);
+    const r = parseHealthPayload({ date: "2026-11-09", heart_rate: "62 count/min\n75 count/min\n88 count/min" }, null);
+    expect(r.metrics[0]).toMatchObject({ value: 75, min: 62, max: 88, samples: 3 });
+  });
   it("rejects junk", () => {
     expect(() => parseHealthPayload([], "2026-11-11")).toThrow(/object/);
     expect(() => parseHealthPayload({ date: "yesterday", steps: 1 }, "2026-11-11")).toThrow(/date/);

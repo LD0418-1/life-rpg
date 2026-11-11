@@ -32,7 +32,8 @@ export async function POST(request: Request) {
 
   let parsed;
   try {
-    parsed = parseHealthPayload(body, new Date().toISOString().slice(0, 10));
+    // No fallback day: the server's "today" (UTC) can be a different day from yours.
+    parsed = parseHealthPayload(body, null);
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "Bad data." }, { status: 400 });
   }

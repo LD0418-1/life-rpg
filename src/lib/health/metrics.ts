@@ -133,6 +133,31 @@ function toNumber(v: unknown): number | null {
   return null;
 }
 
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+/**
+ * The day a date string names. Takes "2026-11-10" (also with a time after it) and
+ * Shortcuts' own date text, like "Nov 10, 2026 at 9:30 PM" or "10 Nov 2026 at 21:30",
+ * so the Shortcut can send Current Date without formatting it. Null if unreadable.
+ */
+export function readDate(text: string): string | null {
+  const t = text.trim();
+  const iso = t.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (iso) return isDay(iso[1]) ? iso[1] : null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const build = (month: string, day: string, year: string) => {
+    const m = MONTHS.indexOf(month.slice(0, 3).toLowerCase());
+    if (m < 0) return null;
+    const d = `${year}-${pad(m + 1)}-${pad(Number(day))}`;
+    return isDay(d) ? d : null;
+  };
+  const us = t.match(/([A-Za-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})/); // Nov 10, 2026
+  if (us) return build(us[1], us[2], us[3]);
+  const eu = t.match(/(\d{1,2})\.?\s+([A-Za-z]{3,9})\.?,?\s+(\d{4})/); // 10 Nov 2026
+  if (eu) return build(eu[2], eu[1], eu[3]);
+  return null; // 11/10/2026 could be November or October: not guessed
+}
+
 function combine(values: number[], agg: Aggregate): number {
   switch (agg) {
     case "sum":
@@ -153,9 +178,11 @@ const round = (n: number, decimals: number) => Math.round(n * 10 ** decimals) / 
 /** "steps" → "steps", "Resting Heart Rate" → "resting_heart_rate". */
 const normalizeKey = (k: string) => k.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 
-function parseDay(obj: Record<string, unknown>, fallbackDay: string): { day: string; rows: MetricRow[] } {
-  const rawDay = typeof obj.date === "string" ? obj.date.trim().slice(0, 10) : typeof obj.day === "string" ? obj.day.trim().slice(0, 10) : fallbackDay;
-  if (!isDay(rawDay)) throw new Error('"date" must look like 2026-11-10.');
+function parseDay(obj: Record<string, unknown>, fallbackDay: string | null): { day: string; rows: MetricRow[] } {
+  const given = typeof obj.date === "string" ? obj.date : typeof obj.day === "string" ? obj.day : null;
+  if (given === null && fallbackDay === null) throw new Error('Add a "date" field to the Shortcut (Current Date).');
+  const rawDay = given === null ? fallbackDay : readDate(given);
+  if (!rawDay || !isDay(rawDay)) throw new Error(`Couldn't read the date "${given}". Send Current Date, or format it as yyyy-MM-dd (like 2026-11-10).`);
   // Metrics can be at the top level or inside "metrics".
   const source = obj.metrics && typeof obj.metrics === "object" && !Array.isArray(obj.metrics) ? { ...obj, ...(obj.metrics as Record<string, unknown>) } : obj;
   const rows = new Map<string, MetricRow>();
@@ -166,7 +193,8 @@ function parseDay(obj: Record<string, unknown>, fallbackDay: string): { day: str
     const alias = ALIAS.get(key);
     const info = alias?.metric ?? metricInfo(key);
     const factor = alias?.factor ?? 1;
-    const list = Array.isArray(raw) ? raw : [raw];
+    // A list of samples can arrive as an array, or as text with one value per line.
+    const list = Array.isArray(raw) ? raw : typeof raw === "string" && raw.includes("\n") ? raw.split(/\n+/).filter((x) => x.trim()) : [raw];
     if (list.length > HEALTH_LIMITS.samplesPerMetric) throw new Error(`Too many samples for "${rawKey}".`);
     let values = list.map(toNumber).filter((n): n is number => n !== null).map((n) => n * factor);
     if (!values.length) {
@@ -197,7 +225,7 @@ function parseDay(obj: Record<string, unknown>, fallbackDay: string): { day: str
  * or several days: { "days": [ { "date": ..., ... }, ... ] }.
  * Returns every metric (for the Health page) and the inbox items worth XP.
  */
-export function parseHealthPayload(body: unknown, fallbackDay: string): { metrics: MetricRow[]; items: HealthRow[] } {
+export function parseHealthPayload(body: unknown, fallbackDay: string | null): { metrics: MetricRow[]; items: HealthRow[] } {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("Send a JSON object.");
   const obj = body as Record<string, unknown>;
   const dayObjects = Array.isArray(obj.days) ? obj.days : [obj];
