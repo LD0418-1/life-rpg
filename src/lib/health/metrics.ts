@@ -70,6 +70,15 @@ export const METRICS: MetricInfo[] = [
   { id: "protein_g", label: "Protein", unit: "g", group: "nutrition", agg: "sum", decimals: 0, max: 1000, chart: "bar" },
 ];
 
+// Durations can also be sent in seconds (Shortcuts often gives durations that way):
+// sleep_seconds, workout_seconds, deep_sleep_seconds, ... are converted for you.
+for (const m of METRICS) {
+  if (m.unit !== "h" && m.unit !== "min") continue;
+  const base = m.id.replace(/_(hours|minutes)$/, "");
+  m.aliases = { ...m.aliases, [`${base}_seconds`]: m.unit === "h" ? 1 / 3600 : 1 / 60 };
+  if (m.unit === "h") m.aliases[`${base}_minutes`] ??= 1 / 60;
+}
+
 export const GROUPS: { id: MetricGroup; label: string }[] = [
   { id: "activity", label: "Activity" },
   { id: "heart", label: "Heart" },
@@ -131,6 +140,19 @@ function toNumber(v: unknown): number | null {
   }
   if (v && typeof v === "object" && "value" in v) return toNumber((v as { value: unknown }).value);
   return null;
+}
+
+/**
+ * Seconds in a duration written as text: "7 hr 32 min", "7h 32m", "45 min",
+ * "90 sec", "1:23:00". Null if the text isn't a duration (e.g. just "45").
+ */
+export function durationSeconds(text: string): number | null {
+  const t = text.trim().toLowerCase();
+  const clock = t.match(/^(\d+):(\d{2}):(\d{2})$/);
+  if (clock) return Number(clock[1]) * 3600 + Number(clock[2]) * 60 + Number(clock[3]);
+  const parts = [...t.matchAll(/(\d+(?:\.\d+)?)\s*(hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)\b/g)];
+  if (!parts.length) return null;
+  return parts.reduce((sum, [, n, unit]) => sum + Number(n) * (unit.startsWith("h") ? 3600 : unit.startsWith("m") ? 60 : 1), 0);
 }
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
@@ -196,7 +218,16 @@ function parseDay(obj: Record<string, unknown>, fallbackDay: string | null): { d
     // A list of samples can arrive as an array, or as text with one value per line.
     const list = Array.isArray(raw) ? raw : typeof raw === "string" && raw.includes("\n") ? raw.split(/\n+/).filter((x) => x.trim()) : [raw];
     if (list.length > HEALTH_LIMITS.samplesPerMetric) throw new Error(`Too many samples for "${rawKey}".`);
-    let values = list.map(toNumber).filter((n): n is number => n !== null).map((n) => n * factor);
+    // Durations written as text ("7 hr 32 min") are converted to this metric's unit.
+    const isDuration = info.unit === "h" || info.unit === "min";
+    const read = (v: unknown): number | null => {
+      if (isDuration && typeof v === "string") {
+        const secs = durationSeconds(v);
+        if (secs !== null) return info.unit === "h" ? secs / 3600 / factor : secs / 60 / factor;
+      }
+      return toNumber(v);
+    };
+    let values = list.map(read).filter((n): n is number => n !== null).map((n) => n * factor);
     if (!values.length) {
       if (list.length) throw new Error(`"${rawKey}" must be a number (or a list of numbers).`);
       continue;

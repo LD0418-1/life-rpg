@@ -97,6 +97,14 @@ describe("Apple Health payload", () => {
     const r = parseHealthPayload({ date: "2026-11-09", heart_rate: "62 count/min\n75 count/min\n88 count/min" }, null);
     expect(r.metrics[0]).toMatchObject({ value: 75, min: 62, max: 88, samples: 3 });
   });
+  it("reads durations as text or seconds", () => {
+    const r = parseHealthPayload({ date: "2026-11-12", sleep_hours: "7 hr 30 min", workout_minutes: "1 hr 5 min", deep_sleep_seconds: 3960, run_seconds: [600, 1200], mindful_minutes: "0:10:00" }, null);
+    const by = Object.fromEntries(r.metrics.map((m) => [m.metric, m.value]));
+    expect(by).toMatchObject({ sleep_hours: 7.5, workout_minutes: 65, deep_sleep_hours: 1.1, run_minutes: 30, mindful_minutes: 10 });
+    // A sleep duration sent under the minutes name still works.
+    expect(parseHealthPayload({ date: "2026-11-12", sleep_minutes: "7 hr 30 min" }, null).metrics[0]).toMatchObject({ metric: "sleep_hours", value: 7.5 });
+    expect(r.items.find((i) => i.kind === "sleep")?.quantity).toBe(450);
+  });
   it("rejects junk", () => {
     expect(() => parseHealthPayload([], "2026-11-11")).toThrow(/object/);
     expect(() => parseHealthPayload({ date: "yesterday", steps: 1 }, "2026-11-11")).toThrow(/date/);

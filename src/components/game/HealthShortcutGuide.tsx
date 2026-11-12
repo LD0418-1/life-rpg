@@ -43,6 +43,17 @@ export function HealthShortcutGuide({ endpoint }: { endpoint: string }) {
           the metric (e.g. <code>resting_heart_rate</code>).
         </li>
         <li>
+          <strong className="text-paper">Sleep</strong>: Find Health Samples, Type <em>Sleep</em> (or <em>Sleep Analysis</em>), <em>End Date is today</em>, plus two filters:{" "}
+          <em>Value is not In Bed</em> and <em>Value is not Awake</em>. Then <strong className="text-paper">Get Details of Health Samples</strong> → <em>Duration</em>,
+          Calculate Statistics → <em>Sum</em>, Set Variable <code>sleep_hours</code>. Text like &ldquo;7 hr 32 min&rdquo; is fine; if it&apos;s a plain number of seconds, name it{" "}
+          <code>sleep_seconds</code> instead. Sleep counts on the day you wake up.
+        </li>
+        <li>
+          <strong className="text-paper">Workouts</strong>: Find Workouts, <em>Start Date is today</em> → Get Details of Workouts → <em>Duration</em> → Calculate Statistics → Sum →
+          Set Variable <code>workout_minutes</code> (or <code>workout_seconds</code> for a plain number of seconds). For runs only, add the filter <em>Type is Running</em> and
+          name it <code>run_minutes</code>.
+        </li>
+        <li>
           At the end, search <strong className="text-paper">Get Contents of URL</strong>. Paste the URL below. Tap the arrow to show more: Method <em>POST</em>; Headers →
           Add → key <code>Authorization</code>, value <code>Bearer </code> followed by your token; Request Body <em>JSON</em> → Add new field → <em>Text</em>, key{" "}
           <code>date</code>, value: the <em>Current Date</em> variable (no formatting needed). Then one <em>Number</em> field per variable, key = its name.
@@ -54,7 +65,7 @@ export function HealthShortcutGuide({ endpoint }: { endpoint: string }) {
         </li>
       </ol>
       <p className="text-xs text-muted">
-        URL: <code className="break-all">{endpoint}</code>. Running it again the same day just updates that day. Values can be numbers or lists of numbers. Sleep and workouts need different actions: ask for help with those. Any other
+        URL: <code className="break-all">{endpoint}</code>. Running it again the same day just updates that day. Values can be numbers or lists of numbers. Any other
         Apple Health type works too: give it a name with letters and _ (like <code>vitamin_c</code>) and it shows up under &ldquo;Other&rdquo;.
       </p>
 
